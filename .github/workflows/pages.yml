@@ -25,7 +25,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Split nightwatch.html into index.html and its files
+      - name: Split Blackharbor.html into index.html and its files
         run: node tools/split.js site
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
