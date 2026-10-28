@@ -6,7 +6,7 @@ Slop Browser-Based Superhero Game Inspired By Kingdom Death: Monster. Investigat
 
 ## Files
 
-The game is plain HTML, CSS and JavaScript with no build step. Every push to `main` publishes these files to Pages as they are.
+The game is plain HTML, CSS and JavaScript with no build step. Every merge into `main` publishes these files to Pages as they are.
 
 | File | What it holds |
 | --- | --- |
@@ -19,6 +19,19 @@ The game is plain HTML, CSS and JavaScript with no build step. Every push to `ma
 | `sprite.js` | The SVG icon and emblem sprite |
 | `art.js` | Drawing code for portraits, standees, lairs and minis |
 
-To play locally, open `index.html` in a browser. To undo a change, revert its commit and push.
+`tools/` holds headless helpers for checking data and running balance sims (Node, no install needed); see [tools/README.md](tools/README.md). They are not published to the site.
+
+To play locally, open `index.html` in a browser.
+
+## Making a change
+
+`main` is the live game and only changes through pull requests.
+
+1. Start from the latest `main` and make a branch: `git switch main && git pull && git switch -c <name>/<short-topic>` (for example `claude/payload-bomb-range` or `tyler/new-splash-quotes`).
+2. Edit the files at the repo root. Check data and balance with `node tools/q.js ...` and `node tools/sim.js ...` from the repo root.
+3. Commit with messages that say what changed in the game, push the branch, and open a pull request into `main`. The description says what players will notice, which files changed, and how it was checked.
+4. Tyler reviews and merges. Pages deploys within about a minute of the merge.
+
+To undo a change that is already live, open a pull request that reverts its merge commit (GitHub's "Revert" button on the merged pull request does this).
 
 Saves live in the browser (localStorage) for this site's address only.
