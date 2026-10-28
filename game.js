@@ -1003,12 +1003,13 @@ function hqView(only){if(tutOn())return tutHq(only);const arc=arcOf(S.issue),iia
     ${S.pool.length?`<p class="small muted" style="margin:0">${S.pool.length} more villain${S.pool.length>1?'s':''} will surface later in this volume.</p>`:''}`)}</section>
   `;
   const fl=S.flash;S.flash=null;
-  return `${guideBar()}${fl?`<div class="cap tilt"><b>Fresh off the press!</b> ${esc(fl)}</div>`:''}${recruitPanel()}
+  return `${guideBar()}${fl?`<div class="cap tilt"><b>Fresh off the press!</b> ${esc(fl)}</div>`:''}<div class="hqcols"><div class="hqa">${recruitPanel()}
   ${skunkPanel()}
   <section class="panel">${coll('hq-base',`<div><div class="eyebrow">Headquarters · ${S.facilities.length} built</div><h2>Base development</h2></div>`,
     `${facU.length?`<div class="grid2">${facU.map(facCard).join('')}</div>`:'<p class="small muted" style="margin:0">Every facility blueprint on file is built.</p>'}
     ${facB.length?coll('hq-facb',`<span class="eyebrow">Built · ${facB.length}</span>`,`<div class="grid2">${facB.map(facCard).join('')}</div>`,false,'nested'):''}
     ${facL.length?coll('hq-facl',`<span class="eyebrow" data-tip="kw:blueprint">Missing facility blueprints · ${facL.length}</span>`,`<div class="grid2">${facL.map(k=>lockedCard('fac:'+k)).join('')}</div>`,false,'nested'):''}`)}</section>
+  ${S.chronicle.length?`<section class="panel">${coll('hq-back',`<div class="eyebrow">Back issues · ${S.chronicle.length}</div>`,`<ul class="lines small">${S.chronicle.slice().reverse().map(c=>`<li>${esc(c)}</li>`).join('')}</ul>`,false)}</section>`:''}</div><div class="hqb">
   <section class="panel">${coll('hq-ws',`<div><div class="eyebrow">Workshop</div><h2>Gear from salvage</h2></div>`,
     `${ws?'':'<p class="small muted" style="margin:0">Build the Workshop to craft gear. Consumables can be bought without it.</p>'}
     <p class="small muted" style="margin:0">Each item fills one body slot and needs the listed discipline ranks to equip. Gear costs only salvage, and higher-rank gear costs more. Tech abilities spend Power, Magic spells spend Arcana, and Innate abilities require Innate rank. Hybrid gear needs ranks in more than one discipline. "Any salvage" can be paid from any villain's salvage.</p>
@@ -1016,7 +1017,7 @@ function hqView(only){if(tutOn())return tutHq(only);const arc=arcOf(S.issue),iia
     ${coll('ws-browse',`<span class="eyebrow">Browse the armory and every blueprint</span>`,`${S.armory.length?coll('ws-arm',`<span class="eyebrow">In the armory · ${S.armory.length}</span>`,armG,true,'nested'):''}
     ${wsTabs}${gear||'<p class="small muted" style="margin:0">Nothing you can afford to craft right now.</p>'}${cant}
     ${gearL.length?coll('hq-gearl',`<span class="eyebrow" data-tip="kw:blueprint">Missing gear blueprints · ${gearL.length}</span>`,`<div class="grid2">${gearL.map(k=>lockedCard('gear:'+k)).join('')}</div>`,false,'nested'):''}`,false,'nested')}`)}</section>
-  ${S.chronicle.length?`<section class="panel">${coll('hq-back',`<div class="eyebrow">Back issues · ${S.chronicle.length}</div>`,`<ul class="lines small">${S.chronicle.slice().reverse().map(c=>`<li>${esc(c)}</li>`).join('')}</ul>`,false)}</section>`:''}`}
+  </div></div>`}
 function arcView(){const a=S.arcInfo;return `<section class="panel"><div class="eyebrow">Volume ${S.vol}</div><div><span class="sfxhead">Arc ${a.arc} begins!</span></div>
   <div class="cap tilt">Time passes. The villains still at large grow stronger and rewrite their playbooks.</div>
   ${coll('arc-lines','<span class="eyebrow">What changed · '+a.lines.length+'</span>',`<ul class="lines">${a.lines.map(l=>`<li>${esc(l)}</li>`).join('')}</ul>`)}<button class="btn pri" data-a="arcnext">Begin issue #${S.issue}</button></section>`}
