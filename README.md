@@ -25,13 +25,17 @@ To play locally, open `index.html` in a browser.
 
 ## Making a change
 
-`main` is the live game and only changes through pull requests.
+`main` is the live game and only changes through pull requests. Every game change is played on the preview site first, and Tyler OKs it there before anything goes to `main`.
 
 1. Start from the latest `main` and make a branch: `git switch main && git pull && git switch -c <name>/<short-topic>` (for example `claude/payload-bomb-range` or `tyler/new-splash-quotes`).
-2. Edit the files at the repo root. Check data and balance with `node tools/q.js ...` and `node tools/sim.js ...` from the repo root.
-3. Commit with messages that say what changed in the game, push the branch, and open a pull request into `main`. The description says what players will notice, which files changed, and how it was checked.
-4. Tyler reviews and merges. Pages deploys within about a minute of the merge.
+2. Edit the files at the repo root. Check data and balance with `node tools/q.js ...` and `node tools/sim.js ...` from the repo root, and layouts with `node tools/shots.js` for UI changes.
+3. Commit with messages that say what changed in the game, and push the branch.
+4. Publish the branch to the preview: `sh tools/preview.sh`. It copies the game files into [Blackharbor-preview](https://github.com/drag0nblad3/Blackharbor-preview), which deploys them to **https://drag0nblad3.github.io/Blackharbor-preview/** in about a minute. The preview has its own save slot and a pink PREVIEW tag naming the branch and commit. It shows one branch at a time, the last one published.
+5. Play it there, then ask Tyler to try the preview link. Nothing goes to `main` until Tyler says it is good.
+6. After Tyler's OK, open a pull request into `main`. The description says what players will notice, which files changed, and how it was checked. Tyler merges, and Pages deploys the live game within about a minute.
+
+Changes that do not touch the game files (docs, tools/) skip the preview and go straight to a pull request.
 
 To undo a change that is already live, open a pull request that reverts its merge commit (GitHub's "Revert" button on the merged pull request does this).
 
-Saves live in the browser (localStorage) for this site's address only.
+Saves live in the browser (localStorage). The live game and the preview share one address (drag0nblad3.github.io), so the preview deploy renames the save key to `blackharbor-v4-preview` and the two never touch each other's saves.

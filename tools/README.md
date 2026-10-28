@@ -62,6 +62,8 @@ The game is the files at the repo root, edited directly on a branch. There is no
 - `bh.js`: the loader. `require('./bh').load({seed, env, patches, subs, html})` (html: game folder, default the repo root) gives `{get(expr), run(code), hash}`. Build your own analysis on it instead of copying stubs.
 - `bot.js`: the one campaign bot (sim/abil-bot/bot.js plus per-hero Power and Arcana pools). Change bot behaviour here.
 - `stub.js`: DOM stand-ins (same as sim/stub.js).
+- `preview.sh`: publishes the current branch to the preview site (see "Going live").
+- `shots.js`, `join.js`: screenshots at six sizes; one joined html.
 
 Verified 2026-10-26 on build 905578c732: with the same seed, `sim.js` gives byte-identical fight records to the old `sim/abil-bot` build.sh harness, and `--jobs 2` matches `--jobs 1`.
 
@@ -74,3 +76,5 @@ In the Claude project files only (`/mnt/project-files/blackharbor/`), not in thi
 ## Going live
 
 Changes reach the live game only through a pull request into `main`; see "Making a change" in the repo README. `main` is what GitHub Pages serves.
+
+`preview.sh` publishes the committed game files of the current checkout to https://drag0nblad3.github.io/Blackharbor-preview/ (repo drag0nblad3/Blackharbor-preview, its own save key). Run it on your branch before the pull request and get Tyler's OK on the preview first. It reuses a clone at `../blackharbor-preview` (or `$PREVIEW_DIR`) and clones one if missing.
