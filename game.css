@@ -614,3 +614,10 @@ button.slot.pick:hover{border-color:var(--cyan)}
   #fsplash{padding:8px}#fsplash .fsn{font-size:1.6rem}
 }
 @media (min-width:1440px){#fsplash .fs{width:min(100%,560px)}#fsplash .fsn{font-size:3.2rem}}
+
+/* Tactical actions: compact native dropdown, usable with touch and keyboard. */
+.other-actions{position:relative;display:inline-block;min-width:132px}
+.other-actions>summary{display:flex;align-items:center;justify-content:center;cursor:pointer;list-style:none;min-height:38px}
+.other-actions>summary::-webkit-details-marker{display:none}
+.other-actions-menu{position:absolute;right:0;top:100%;z-index:30;display:flex;flex-direction:column;gap:5px;min-width:190px;max-width:min(85vw,280px);padding:8px;background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px #0006}
+.other-actions-menu .btn{width:100%;min-height:40px;justify-content:center}
