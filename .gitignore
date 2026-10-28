@@ -1,2 +1,5 @@
 site/
 node_modules/
+tools/cache/
+blackharbor-joined.html
+shots/
