@@ -546,3 +546,54 @@ button.slot.pick:hover{border-color:var(--cyan)}
 @media (prefers-reduced-motion:reduce){.ocover{animation:none}}
 @media (max-width:440px){h1{font-size:1.35rem}.stats{grid-template-columns:repeat(4,1fr)}}
 
+
+/* Responsive layouts. Phones keep the single column; extra rules only add the sticky battle bar,
+   the short fight header, and wider multi-column layouts from 1024 px up. Breakpoints:
+   <600 phone, 600-1023 tablet, height<=520 sideways phone, 1024+ laptop, 1440+ wide. */
+.sdl{display:flex;flex-direction:column;gap:10px;min-width:0}
+.sdp .bhd,.sdp .bcol,.sdp .brest{display:flex;flex-direction:column;gap:9px;min-width:0}
+.sdp .bact{display:flex;flex-direction:column;gap:6px;min-width:0}
+@media (max-width:1023px){
+  .wrap.v-sd .bact{position:sticky;bottom:0;z-index:9;background:var(--panel);border-top:2.5px solid var(--ink);margin:0 -10px;padding:8px 10px}
+  .wrap.v-sd .bact .btn.pri{padding:6px}
+  .board{max-width:100%}
+}
+@media (max-width:599px){
+  .wrap.v-sd .mast{padding:6px 10px;gap:4px 10px;align-items:center}
+  .wrap.v-sd .mast small{display:none}.wrap.v-sd .mast h1{font-size:1.15rem}
+  .wrap.v-sd .issue{font-size:.8rem;padding:2px 8px}
+  .wrap.v-sd .mast .res{flex-wrap:nowrap;overflow-x:auto;width:100%}.wrap.v-sd .chip{padding:2px 6px}
+  .wrap.v-sd .bact{padding:6px 10px;gap:4px}.wrap.v-sd .bact .btn{padding:5px 8px}
+}
+@media (min-width:1024px){
+  .wrap{max-width:1200px}
+  .mast{flex-wrap:nowrap;align-items:center}.mast small{display:none}.mast h1{font-size:1.3rem}.mast>div:first-child{display:flex;gap:14px;align-items:center}.mast .res{flex-wrap:nowrap}
+  .wrap.v-hq-hq,.wrap.v-hq-villains{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
+  .wrap.v-hq-hq>*,.wrap.v-hq-villains>*{min-width:0}
+  .wrap.v-hq-hq>.mast,.wrap.v-hq-hq>.nav,.wrap.v-hq-hq>.cap,.wrap.v-hq-hq>.guide,.wrap.v-hq-hq>.cheats,.wrap.v-hq-villains>.mast,.wrap.v-hq-villains>.nav,.wrap.v-hq-villains>.cap{grid-column:1/-1}
+  .wrap.v-sd{max-width:1500px}
+  .wrap.v-sd .sdp{display:grid;grid-template-columns:auto minmax(320px,1fr);grid-template-rows:auto auto 1fr;column-gap:12px;align-items:start}
+  .wrap.v-sd .sdp .bcol{grid-column:1;grid-row:1/4}
+  .wrap.v-sd .sdp .bhd{grid-column:2;grid-row:1}.wrap.v-sd .sdp .bact{grid-column:2;grid-row:2}.wrap.v-sd .sdp .brest{grid-column:2;grid-row:3;max-height:calc(100vh - 340px);overflow:auto}
+  .wrap.v-sd .board{width:min(calc((100vh - 170px)*1.174),calc(100vw - 480px));max-width:none}
+  .wrap.v-inv{max-width:1000px}
+}
+@media (min-width:1200px){.wrap.v-hq-hq,.wrap.v-hq-villains{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (min-width:1440px){
+  .wrap{max-width:1600px}.wrap.v-sd{max-width:1760px}
+  .wrap.v-sd .sdl{display:grid;grid-template-columns:300px minmax(0,1fr);gap:10px;align-items:start}
+  .wrap.v-sd .sdp{grid-template-columns:auto minmax(340px,1fr)}
+  .wrap.v-sd .sdlog{grid-column:1;grid-row:1}.wrap.v-sd .sdp{grid-column:2;grid-row:1}
+  .wrap.v-sd .sdlog .log{max-height:calc(100vh - 220px)}
+  .wrap.v-sd .board{width:min(calc((100vh - 150px)*1.174),calc(100vw - 1040px))}
+}
+@media (orientation:landscape) and (max-height:520px) and (max-width:1023px){
+  .wrap.v-sd .nav,.wrap.v-sd .mast small{display:none}
+  .wrap.v-sd .mast{padding:4px 10px;flex-wrap:nowrap;align-items:center}.wrap.v-sd .mast h1{font-size:1.1rem}
+  .wrap.v-sd .sdp{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:10px;align-items:start}
+  .wrap.v-sd .sdp .bcol{grid-column:1;grid-row:1/4}.wrap.v-sd .sdp .bhd{grid-column:2;grid-row:2}
+  .wrap.v-sd .sdp .bact{position:static;grid-column:2;grid-row:1;margin:0;border:0;padding:0}.wrap.v-sd .sdp .brest{grid-column:2;grid-row:3}
+  .wrap.v-sd .board{width:calc((100vh - 90px)*1.174);max-width:none}
+  #fsplash{padding:8px}#fsplash .fsn{font-size:1.6rem}
+}
+@media (min-width:1440px){#fsplash .fs{width:min(100%,560px)}#fsplash .fsn{font-size:3.2rem}}
