@@ -1014,6 +1014,76 @@ function body(){return bodyMain()+fsplashView()+cheatPanel()+guideModal()+tipMod
 function bodyMain(){if(S.phase==='tutend')return tutEndView();if(S.over&&S.phase!=='after')return overView();if(S.view==='create'&&S.cre&&S.phase==='hq')return createView();if(S.view==='roster')return rosterView();if(S.phase==='event')return eventView();if(S.phase==='arc')return arcView();
   if(S.phase==='hq')return hqView(S.view==='villains'?'villains':null);if(S.phase==='inv')return invView();if(S.phase==='sd')return sdView();if(S.phase==='after')return afterView();return ''}
 
+/* Shared screen framing for the preview comic-noir UI. Values come from current state. */
+function bhPagehead(kicker,title,description,stats){
+  return `<header class="bh-pagehead"><div class="bh-pagehead-copy"><span class="bh-page-kicker">${esc(kicker)}</span><h2>${esc(title)}</h2><p>${esc(description)}</p></div>
+    <div class="bh-page-stats">${stats.map(([n,v])=>`<div class="bh-page-stat"><b>${esc(String(v))}</b><span>${esc(n)}</span></div>`).join('')}</div></header>`;
+}
+
+/* Operational side rails: existing resources, team and case state, no new mechanics. */
+function bhHqOps(){
+  const active=S.villains.filter(v=>v.status==='active'),team=party(),
+    needs=roster().filter(h=>h.pendingUp>0);
+  return `<div class="bh-rail-heading">Operations desk <small>Issue #${S.issue}</small></div>
+    <div class="bh-rail-block"><div class="bh-rail-title">On the streets <span>${active.length} active</span></div>
+      ${active.length?active.map(v=>`<div class="bh-ops-threat">
+        <span class="vbadge" style="${vSty(v.key)}">${vIc(v.key)}</span>
+        <div class="bh-ops-threat-copy"><b>${esc(VILLAINS[v.key].short)}</b><small>Level ${v.level} · Scheme ${v.scheme}/${schemeMax()}</small></div>
+        <button class="btn sm" data-a="book:${v.key}" aria-label="Open ${esc(VILLAINS[v.key].name)} playbook">File</button>
+      </div>`).join(''):'<p class="small">No active villains yet.</p>'}
+      <button class="btn sm bh-rail-button" data-a="view:villains">Open threat board</button>
+    </div>
+    <div class="bh-rail-block"><div class="bh-rail-title">Team readiness <span>${team.length}/4</span></div>
+      ${team.map(h=>`<div class="bh-mini-hero"><b>${esc(h.name)}</b><span title="Health">${UI('hp')} ${h.hp}/${stat(h,'maxHp')}</span>
+        <span title="Composure">${UI('comp')} ${h.comp}/${stat(h,'maxComp')}</span></div>`).join('')||'<p class="small">Recruit heroes to build a field team.</p>'}
+      ${needs.length?`<p class="bh-alert">${needs.length} hero${needs.length===1?'':'es'} ready to level up</p>`:''}
+      <button class="btn sm bh-rail-button" data-a="view:roster">Manage roster</button>
+    </div>
+    <div class="bh-rail-block"><div class="bh-rail-title">Base ledger</div>
+      <div class="bh-rail-ledger"><span>Trust <b>${S.trust}</b></span>
+        <span>Tech <b>${S.tech}</b></span><span>Intel <b>${S.intel}</b></span>
+        <span>Salvage <b>${Object.values(S.salvage).reduce((a,b)=>a+b,0)}</b></span></div>
+    </div>`;
+}
+function bhThreatOps(active,arc,iia){
+  return `<div class="bh-rail-heading">Case docket <small>Arc ${arc} · Issue ${iia}</small></div>
+    <div class="bh-rail-block"><div class="bh-rail-title">Open investigations</div>
+      ${active.map(v=>`<div class="bh-case-index">
+        <span class="vbadge" style="${vSty(v.key)}">${vIc(v.key)}</span>
+        <div><b>${esc(VILLAINS[v.key].short)}</b><small>Level ${v.level} · ${v.scheme}/${schemeMax()} scheme</small></div>
+      </div>`).join('')||'<p class="small">No active targets.</p>'}
+    </div>
+    <div class="bh-rail-block"><div class="bh-rail-title">Investigation team <span>${party().length}/4</span></div>
+      ${party().map(h=>`<div class="bh-mini-hero"><b>${esc(h.name)}</b><span>HP ${h.hp}/${stat(h,'maxHp')}</span></div>`).join('')||'<p class="small">Select a team before investigating.</p>'}
+      <button class="btn sm bh-rail-button" data-a="view:roster">Adjust party</button>
+    </div>
+    <div class="bh-rail-block"><div class="bh-rail-title">What matters</div>
+      <p class="small">Every untouched villain advances their scheme each issue. Study known playbook pages before choosing who to hunt.</p>
+      <div class="bh-rail-ledger"><span>Active <b>${active.length}</b></span><span>Threats waiting <b>${S.pool.length}</b></span></div>
+    </div>`;
+}
+function bhRosterOps(p,b){
+  return `<div class="bh-rail-heading">Team selector <small>${p.length}/4 active</small></div>
+    <div class="bh-rail-block"><div class="bh-rail-title">Field squad</div>
+      ${p.map(h=>bhRosterPick(h,'party')).join('')||'<p class="small">Nobody assigned to the field squad.</p>'}
+    </div>
+    <div class="bh-rail-block"><div class="bh-rail-title">Reserves <span>${b.length}</span></div>
+      ${b.map(h=>bhRosterPick(h,'bench')).join('')||'<p class="small">No reserve heroes.</p>'}
+    </div>
+    <div class="bh-rail-block"><div class="bh-rail-title">Equipment locker</div>
+      <div class="bh-rail-ledger"><span>Armory items <b>${S.armory.length}</b></span>
+      <span>Pending upgrades <b>${roster().reduce((n,h)=>n+h.pendingUp,0)}</b></span></div>
+      ${S.phase==='hq'?'<button class="btn sm bh-rail-button" data-a="view:hq">Visit workshop</button>':''}
+    </div>`;
+}
+function bhRosterPick(h,where){
+  const b=BASE(h);
+  return `<button type="button" class="bh-roster-pick" data-a="rofocus:${h.id}" aria-label="Open ${esc(h.name)} character sheet">
+    <span class="bh-pick-icon" style="--hc:${b.col}">${pIc(b.power)}</span>
+    <span class="bh-pick-copy"><b>${esc(h.name)}</b><small>Lvl ${lvlOf(h)} · ${esc(b.role)}</small></span>
+    <span class="bh-pick-hp">${h.hp}/${stat(h,'maxHp')} HP${h.pendingUp?' ★':''}</span>
+  </button>`;
+}
 function hqView(only){if(tutOn())return tutHq(only);const arc=arcOf(S.issue),iia=(S.issue-1)%ISSUES_PER_ARC+1;
   const act=S.villains.filter(o=>o.status==='active');
   const vcard=o=>{const d=VILLAINS[o.key],seen=((S.seen&&S.seen[o.key])||[]).length;
@@ -1055,16 +1125,16 @@ function hqView(only){if(tutOn())return tutHq(only);const arc=arcOf(S.issue),iia
     <div class="row small"><span class="eyebrow">Paying any salvage</span>${[['0','Ask me which'],['1','Use my biggest pile']].map(([k,l])=>`<button class="btn sm ${(S.anyAuto?'1':'0')===k?'pri':''}" data-a="anyauto:${k}">${l}</button>`).join('')}</div>`;
   const gearL=Object.keys(GEAR).filter(k=>!isUnlocked('gear:'+k)).sort((a,b)=>GEAR[a].req-GEAR[b].req);
   const rTop=!roster().length||(S.guide&&S.guide.s<=1);
-  if(only==='villains')return `${guideBar()}<section class="panel">${coll('vl-cases',`<div><div class="eyebrow">Volume ${S.vol} · Arc ${arc} of ${ARCS} · Issue ${iia} of ${ISSUES_PER_ARC}</div><h2>Case files</h2></div>`,
+  if(only==='villains')return `${guideBar()}${bhPagehead('Blackharbor intelligence','Threat board','Track their schemes, review their playbooks, and choose the next target.',[['Active threats',act.length],['Party',`${party().length}/4`],['Issue',iia]])}<div class="bh-threat-layout"><aside class="bh-threat-rail">${bhThreatOps(act,arc,iia)}</aside><section class="panel bh-threat-content">${coll('vl-cases',`<div><div class="eyebrow">Volume ${S.vol} · Arc ${arc} of ${ARCS} · Issue ${iia} of ${ISSUES_PER_ARC}</div><h2>Case files</h2></div>`,
     `<div class="steps" data-tip="kw:arc">${[...Array(ISSUES_PER_ARC)].map((_,i)=>`<span class="${i<iia-1?'f':''}"></span>`).join('')}</div>
     <div class="cap tilt">${arc<ARCS?`When this arc ends, every free villain levels up and rewrites part of their playbook, and a new villain arrives.`:'Final arc. When it ends, two villains team up for the event comic finale.'} Villains you don't hunt keep scheming. Long-press any stat, item or keyword for details.</div>
     <div class="row small"><span class="eyebrow" data-tip="kw:party">Party</span>${party().map(h=>`<span class="tag g">${esc(h.name)}</span>`).join('')||'<span class="tag">Empty</span>'}<button class="btn sm" data-a="view:roster">Change party</button></div>
     <div class="grid2">${act.map(vcard).join('')}</div>
     ${!S.villains.length?'<p class="cap">Recruit four heroes to reveal the three opening villains. The threats will match your team’s disciplines.</p>':''}
-    ${S.villains.length&&S.pool.length?`<p class="small muted" style="margin:0">${S.pool.length} more villain${S.pool.length>1?'s':''} will surface later in this volume.</p>`:''}`)}</section>
+    ${S.villains.length&&S.pool.length?`<p class="small muted" style="margin:0">${S.pool.length} more villain${S.pool.length>1?'s':''} will surface later in this volume.</p>`:''}`)}</section></div>
   `;
   const fl=S.flash;S.flash=null;
-  return `${guideBar()}${fl?`<div class="cap tilt"><b>Fresh off the press!</b> ${esc(fl)}</div>`:''}<div class="hqcols"><div class="hqa">${recruitPanel()}
+  return `${guideBar()}${bhPagehead('Guardians command center','Headquarters','Develop facilities, outfit the team, and prepare for the next issue.',[['Field team',`${party().length}/4`],['Facilities',S.facilities.length],['Armory',S.armory.length]])}${fl?`<div class="cap tilt"><b>Fresh off the press!</b> ${esc(fl)}</div>`:''}<div class="bh-hq-layout"><aside class="bh-hq-rail">${bhHqOps()}</aside><div class="hqcols"><div class="hqa">${recruitPanel()}
   ${skunkPanel()}
   <section class="panel">${coll('hq-base',`<div><div class="eyebrow">Headquarters · ${S.facilities.length} built</div><h2>Base development</h2></div>`,
     `${facU.length?`<div class="grid2">${facU.map(facCard).join('')}</div>`:'<p class="small muted" style="margin:0">Every facility blueprint on file is built.</p>'}
@@ -1078,16 +1148,16 @@ function hqView(only){if(tutOn())return tutHq(only);const arc=arcOf(S.issue),iia
     ${coll('ws-browse',`<span class="eyebrow">Browse the armory and every blueprint</span>`,`${S.armory.length?coll('ws-arm',`<span class="eyebrow">In the armory · ${S.armory.length}</span>`,armG,true,'nested'):''}
     ${wsTabs}${gear||'<p class="small muted" style="margin:0">Nothing you can afford to craft right now.</p>'}${cant}
     ${gearL.length?coll('hq-gearl',`<span class="eyebrow" data-tip="kw:blueprint">Missing gear blueprints · ${gearL.length}</span>`,`<div class="grid2">${gearL.map(k=>lockedCard('gear:'+k)).join('')}</div>`,false,'nested'):''}`,false,'nested')}`)}</section>
-  </div></div>`}
+  </div></div></div>`}
 function arcView(){const a=S.arcInfo;return `<section class="panel"><div class="eyebrow">Volume ${S.vol}</div><div><span class="sfxhead">Arc ${a.arc} begins!</span></div>
   <div class="cap tilt">Time passes. The villains still at large grow stronger and rewrite their playbooks.</div>
   ${coll('arc-lines','<span class="eyebrow">What changed · '+a.lines.length+'</span>',`<ul class="lines">${a.lines.map(l=>`<li>${esc(l)}</li>`).join('')}</ul>`)}<button class="btn pri" data-a="arcnext">Begin issue #${S.issue}</button></section>`}
 function rosterView(){const p=party(),b=bench(),atHQ=S.phase==='hq',fl=S.flash;S.flash=null;
-  return `${guideBar()}${fl?`<div class="cap tilt"><b>Fresh off the press!</b> ${esc(fl)}</div>`:''}<section class="panel">${coll('ro-party',`<div><div class="eyebrow" data-tip="kw:party">Active party · ${p.length}/4</div><h2>Party</h2></div>`,
+  return `${guideBar()}${bhPagehead('Heroes of Blackharbor','Team roster','Compare heroes at a glance; open any card for disciplines, equipment, and upgrades.',[['Active',`${p.length}/4`],['Reserves',b.length],['Upgrades',roster().reduce((n,h)=>n+h.pendingUp,0)]])}${fl?`<div class="cap tilt"><b>Fresh off the press!</b> ${esc(fl)}</div>`:''}<div class="bh-roster-layout"><aside class="bh-roster-rail">${bhRosterOps(p,b)}</aside><div class="bh-roster-content"><section class="panel">${coll('ro-party',`<div><div class="eyebrow" data-tip="kw:party">Active party · ${p.length}/4</div><h2>Party</h2></div>`,
     `<p class="small muted" style="margin:0">${prepGear()?'You caught the villain by surprise: gear can be changed before entering the lair.':atHQ?'Only the party goes on missions and investigations. Benched heroes train and recover: full health and +1 XP every issue.':'The party can be changed at HQ between issues.'}</p>
     ${p.length?`<div class="grid2">${p.map(h=>heroCard(h,'party')).join('')}</div>`:'<div class="cap">The party is empty. Add heroes from the bench before the next mission.</div>'}`)}</section>
   <section class="panel">${coll('ro-bench',`<div><div class="eyebrow">Reserves · ${b.length}</div><h2>Bench</h2></div>`,`${b.length?'':'<p class="small muted" style="margin:0">Nobody on the bench.</p>'}<div class="grid2">${b.map(h=>heroCard(h,'bench')).join('')}</div>${atHQ&&roster().length<ROSTER_MAX?'<div class="row"><button class="btn sm" data-a="view:hq">Recruit more heroes at HQ</button></div>':''}`)}</section>
-  ${S.fallen.length?`<p class="small muted" style="margin:0">Retired: ${S.fallen.map(esc).join(', ')}</p>`:''}`}
+  ${S.fallen.length?`<p class="small muted" style="margin:0">Retired: ${S.fallen.map(esc).join(', ')}</p>`:''}</div></div>`}
 /* passive gear effects, one line each */
 function gearExtra(g){const o=[];if(g.two)o.push('<b>Two-handed:</b> fills both the Main Hand and the Off Hand.');else if(g.hand==='main')o.push('<b>Main Hand</b> weapon.');else if(g.hand==='off')o.push('<b>Off Hand</b> item.');
   if(g.pair)o.push(`<b>Paired:</b> goes in either hand. Hold one in each hand and both count in full${g.pair.fx||Object.values(g.pair.mods||{}).some(Boolean)?`, plus ${g.pair.txt}`:''}.`);
@@ -1121,7 +1191,7 @@ function heroCard(h,where){const b=BASE(h),mx=stat(h,'maxHp'),mc=stat(h,'maxComp
     :`<div class="cap"><b>${TRACKS[h.trackPick]?`${TRACKS[h.trackPick].name} rank gained.`:'Every discipline is mastered.'}</b> Now choose one upgrade:</div><div class="row">${h.upChoices.map(k=>`<button class="btn sm pri" data-a="up:${h.id}:${k}" data-tip="upg:${k}">${UPG[k].name}</button>`).join('')}</div>`):'';
   const SK={HP:'hp',MOV:'move',DICE:'speed',ACC:'acc',STR:'str',EVA:'eva',RNG:'range',COMP:'comp'},SI={HP:'hp',MOV:'move',DICE:'dice',ACC:'acc',STR:'str',EVA:'eva',RNG:'rng',COMP:'comp'};
   const st=[['HP',`${h.hp}/${mx}`],['MOV',stat(h,'move')],['DICE',stat(h,'speed')],['ACC',(stat(h,'acc')<0?'':'+')+stat(h,'acc')],['STR',(stat(h,'str')<0?'':'+')+stat(h,'str')],['EVA',stat(h,'eva')],['RNG',stat(h,'range')],['COMP',mc]];
-  return `<div class="card"><details class="coll" data-cid="h-${h.id}" ${uiOpen('h-'+h.id,true)?'open':''}><summary><div class="row"><span class="vic" style="--vc:${b.col}">${pIc(b.power)}</span><h3>${esc(h.name)}</h3><span class="lvl" data-tip="kw:xp">LVL ${lvlOf(h)}</span>${h.est?'<span class="tag" data-tip="kw:established">Established</span>':''}<span class="small mono muted" data-tip="kw:hp">HP ${h.hp}/${mx}</span>${b.field?'<span class="tag g" data-tip="kw:field">Field</span>':''}${h.pendingUp?'<span class="tag" data-tip="kw:levelup">Level up!</span>':''}</div></summary><div class="cbody">
+  return `<div class="card"><details class="coll" data-cid="h-${h.id}" ${uiOpen('h-'+h.id,where==='prep'||where==='fight'||tutOn()||!!S.guide)?'open':''}><summary><div class="row"><span class="vic" style="--vc:${b.col}">${pIc(b.power)}</span><h3>${esc(h.name)}</h3><span class="lvl" data-tip="kw:xp">LVL ${lvlOf(h)}</span>${h.est?'<span class="tag" data-tip="kw:established">Established</span>':''}<span class="small mono muted" data-tip="kw:hp">HP ${h.hp}/${mx}</span><span class="small mono muted" data-tip="kw:comp">COMP ${h.comp}/${mc}</span>${b.field?'<span class="tag g" data-tip="kw:field">Field</span>':''}${h.pendingUp?'<span class="tag" data-tip="kw:levelup">Level up!</span>':''}</div></summary><div class="cbody">
   ${atHQ&&where==='party'?`<div class="row"><button class="btn sm" data-a="bench:${h.id}">Move to bench</button></div>`:''}${atHQ&&where==='bench'?(party().length<4?`<div class="row"><button class="btn sm pri" data-a="join:${h.id}">Join the party</button></div>`:`<div class="row"><span class="eyebrow">Swap in for</span>${party().map(o=>`<button class="btn sm" data-a="swap:${h.id}:${o.id}">${esc(o.name)}</button>`).join('')}</div>`):''}
   <div class="small muted">${esc(b.role)}${h.name!==b.name?` · carries the ${esc(b.name)} mantle`:''}</div>${h.origin?`<div class="small muted" data-tip="kw:origin">Origin: ${esc(h.origin.join(' · '))}</div>`:''}
   <div class="row">${ranks}</div>
@@ -1138,37 +1208,148 @@ function heroCard(h,where){const b=BASE(h),mx=stat(h,'maxHp'),mc=stat(h,'maxComp
   ${lvlUp}
   </div></details></div>`}
 
-function introView(){const i=S.inv,d=VILLAINS[i.v],vs=vState(i.v),I=VINTEL[i.v],seen=(S.seen&&S.seen[i.v])||[],sr=(S.seenR&&S.seenR[i.v])||[];
-  const ids=[...new Set(vs.deck.map(e=>e.id))],pk=ids.filter(id=>seen.includes(id)).length,rk=I.react.filter(r=>sr.includes(r.id)).length;
-  return `<section class="panel vintro"><div class="vsplash"><small>Case file · Issue #${S.issue} · Level ${vs.level}</small><b>${esc(d.name)}</b><span class="ctag">${esc(d.tag)}</span></div>
-    <div class="cap tilt">${esc(I.intro)}</div>
-    <div class="card"><div class="eyebrow" data-tip="kw:hints">What the streets say</div><ul class="hints">${I.hints.map(t=>`<li>${esc(t)}</li>`).join('')}</ul></div>
-    <div class="row small"><span class="chip" data-tip="kw:playbook"><b>Pages known</b>${pk}/${ids.length}</span><span class="chip" data-tip="kw:reaction"><b>Reactions known</b>${rk}/${I.react.length}</span><span class="chip" data-tip="kw:vsize"><b>Size</b>${SHAPE_N[d.shape]}</span><span class="chip" data-tip="kw:clues"><b>Head start</b>${i.clues} clue${i.clues===1?'':'s'}</span></div>
-    ${i.found.length?`<div class="eyebrow" data-tip="kw:intelfile">Your head start uncovered</div><div class="intels">${i.found.map(f=>intelTile(i.v,f,true)).join('')}</div>`:''}
-    ${i.ovf?`<div class="small" data-tip="kw:overflow"><b>More than you need.</b> Your head start is past ${PREP_CLUES} clues: +${i.ovf} intel.</div>`:''}
-    <p class="small muted" style="margin:0">Every clue you find opens one unseen playbook page or hit reaction. Find 4 or more to catch ${esc(d.short)} by surprise and change gear before the fight.</p>
-    <button class="btn pri" data-a="invgo">Hit the streets</button></section>`}
 
-function invView(){const i=S.inv,d=VILLAINS[i.v];const done=i.step>=3;
-  if(i.intro)return introView();
-  let inner;
-  if(done){const q=invQuality(i.clues);inner=`<div class="cap"><b>${i.clues} clue${i.clues===1?'':'s'}.</b> You've found the lair.</div>
-    <div class="card"><div class="eyebrow">Showdown condition</div><div class="big" style="color:var(--magenta)">${QUAL[q].n}</div><div class="small">${QUAL[q].txt}</div></div>
-    <p class="small muted" style="margin:0">0–${S.ethos.b==='public'?2:1} clues: Ambush · ${S.ethos.b==='public'?3:2}–3: Standoff · 4+: Prepared</p>
-    ${q==='prepared'?coll('gearup',`<div><div class="eyebrow" data-tip="kw:gearup">Surprise!</div><h3>Gear up before you go in</h3></div>`,
-      `<p class="small muted" style="margin:0">They don't know you're coming. Swap gear between the party and the armory now, using what the case file tells you.</p>
-      <div class="grid2">${party().map(h=>heroCard(h,'prep')).join('')}</div>`,true):''}
-    <button class="btn pri" data-a="lair">Enter the lair</button>`}
-  else{const e=evOf(i.events[i.step]),sig=VEVENTS[i.v]&&VEVENTS[i.v].includes(e);
-    const nf=i.res&&i.fresh?i.found.slice(-i.fresh):[];
-    inner=`<div class="eyebrow">Lead ${i.step+1} of 3${sig?` · <span data-tip="kw:vlead">${esc(d.short)}'s trail</span>`:''}</div><h3>${e.title}</h3><div class="cap tilt">${esc(e.txt(d.name))}</div>
-    ${i.res?`<div class="card"><div class="small">${esc(i.res)}</div>${nf.length?`<div class="eyebrow" data-tip="kw:intelfile">New intel</div><div class="intels">${nf.map(f=>intelTile(i.v,f,true)).join('')}</div>`:''}${i.ovfFresh?`<div class="small" data-tip="kw:overflow"><b>More than you need.</b> +${i.ovfFresh} intel from clues past ${PREP_CLUES}.</div>`:''}<button class="btn" data-a="invnext">${i.step<2?'Next lead':'Find the lair'}</button></div>`:
-    `<div class="grid2">${e.opts.map((o,k)=>`<button class="btn opt" data-a="invopt:${k}" ${o.ok&&!o.ok()?'disabled':''}><span>${o.l}</span><small>${o.h}</small></button>`).join('')}</div>`}`}
-  return `<section class="panel"><div class="row between"><div><div class="eyebrow">Investigation</div><h2>Tracking ${d.name}</h2></div><span class="chip" data-tip="kw:clues"><b>Clues</b>${i.clues}</span>${(i.notes||[]).map(n=>`<span class="tag g" data-tip="kw:field">${esc(n)}</span>`).join('')}${i.ovf?`<span class="tag g" data-tip="kw:overflow">+${i.ovf} intel filed</span>`:''}</div>
-    <div class="steps">${[0,1,2].map(k=>`<span class="${k<i.step||(k===i.step&&i.res)?'f':''}"></span>`).join('')}</div>${inner}
-    ${i.found.length?coll('intelfile',`<div><div class="eyebrow" data-tip="kw:intelfile">Case file</div><h3>Intel this investigation · ${i.found.length}</h3></div>`,`<div class="intels">${i.found.map(f=>intelTile(i.v,f,false)).join('')}</div>
-    <button class="btn sm" data-a="book:${i.v}" style="align-self:flex-start">Read the full playbook</button>`,false):''}</section>`}
-
+/* Investigation comic-board presentation: all labels and counts are derived from the live case state. */
+function invCaseKnowledge(i){
+  const vs=vState(i.v),intel=VINTEL[i.v],known=(S.seen&&S.seen[i.v])||[],reactions=(S.seenR&&S.seenR[i.v])||[];
+  const pages=[...new Set(vs.deck.map(e=>e.id))];
+  return {pages:pages.filter(id=>known.includes(id)).length,totalPages:pages.length,
+    reactions:intel.react.filter(r=>reactions.includes(r.id)).length,totalReactions:intel.react.length};
+}
+function invLeadTrail(i){
+  return `<div class="inv-trail" aria-label="Three investigation leads">
+    ${[0,1,2].map(n=>{
+      const current=n===i.step&&!i.intro,complete=n<i.step||(current&&!!i.res),unlocked=!i.intro&&n<=i.step;
+      const event=unlocked?evOf(i.events[n]):null;
+      return `<div class="inv-trail-item ${complete?'complete':current?'current':'sealed'}">
+        <span class="inv-trail-pin" aria-hidden="true">${complete?'✓':n+1}</span>
+        <span class="inv-trail-copy"><small>Lead ${n+1} · ${complete?'Resolved':current?'In progress':'Unopened'}</small>
+          <b>${event?esc(event.title):'Unknown lead'}</b></span>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+function invCaseShell(i,content){
+  const d=VILLAINS[i.v],vs=vState(i.v),I=VINTEL[i.v],k=invCaseKnowledge(i),q=invQuality(i.clues);
+  const stage=i.intro?'Case opened':i.step>=3?'Lair located':i.res?'Lead resolved':`Lead ${i.step+1} of 3`;
+  const cutoff=S.ethos.b==='public'?2:1;
+  return `<section class="inv-ui" aria-label="Investigation: ${esc(d.name)}">
+    <header class="inv-header">
+      <div><div class="inv-kicker">Blackharbor · Issue #${S.issue} · Case file</div>
+        <h2>Investigation <span class="inv-heading-sub">/ ${esc(d.name)}</span></h2></div>
+      <div class="inv-summary">
+        <span class="inv-label inv-issue">Vol. ${S.vol} · Level ${vs.level}</span>
+        <span class="inv-label inv-clue-total" data-tip="kw:clues">${UI('clue')}<b>${i.clues}</b> clues</span>
+        <span class="inv-label inv-phase">${stage}</span>
+      </div>
+    </header>
+    <div class="inv-grid">
+      <main class="inv-main">
+        <div class="inv-board-head"><span class="inv-tape">THE CASEBOARD</span>
+          <span class="inv-board-meta">${Math.min(i.step,3)} / 3 leads finished</span></div>
+        ${invLeadTrail(i)}
+        <div class="inv-action-stage">${content}</div>
+      </main>
+      <aside class="inv-villain-rail" aria-label="Target and team">
+        <div class="inv-section-title">Target dossier</div>
+        <div class="inv-villain-card" style="${vSty(i.v)}">
+          <div class="inv-villain-emblem">${vIc(i.v)}</div>
+          <div class="inv-villain-desc"><small>Active target · Level ${vs.level}</small>
+          <h3>${esc(d.name)}</h3><span>${esc(d.tag)}</span></div>
+        </div>
+        <div class="inv-side-block"><div class="inv-small-head">Showdown outlook <span data-tip="kw:clues">ⓘ</span></div>
+          <strong class="inv-outlook ${q}">${QUAL[q].n}</strong>
+          <div class="inv-clue-track" aria-label="${i.clues} clues, prepared at 4">
+            ${[0,1,2,3].map(n=>`<i class="${n<i.clues?'filled':''}"></i>`).join('')}
+          </div>
+          <p>${i.step>=3?QUAL[q].txt:'Current outlook. Final condition is determined after all three leads.'}</p>
+          <small class="inv-threshold">0–${cutoff} Ambush · ${cutoff+1}–3 Standoff · 4+ Prepared</small>
+        </div>
+        <div class="inv-side-block"><div class="inv-small-head" data-tip="kw:hints">What the streets say</div>
+          <ul class="inv-hints">${I.hints.map(h=>`<li>${esc(h)}</li>`).join('')}</ul>
+        </div>
+        <div class="inv-side-block inv-party"><div class="inv-small-head">Field team <span>${party().length}/4</span></div>
+          ${party().map(h=>`<div class="inv-hero-row">
+            <span class="inv-hero-name">${esc(h.name)}</span>
+            <span title="Health">${UI('hp')}${h.hp}/${stat(h,'maxHp')}</span>
+            <span title="Composure">${UI('comp')}${h.comp}/${stat(h,'maxComp')}</span>
+          </div>`).join('')}
+        </div>
+      </aside>
+      <aside class="inv-intel-rail" aria-label="Investigation intelligence">
+        <div class="inv-section-title">Intelligence file</div>
+        <div class="inv-knowledge-row">
+          <div data-tip="kw:playbook"><b>${k.pages}/${k.totalPages}</b><small>Pages known</small></div>
+          <div data-tip="kw:reaction"><b>${k.reactions}/${k.totalReactions}</b><small>Reactions known</small></div>
+        </div>
+        <div class="inv-side-block"><div class="inv-small-head" data-tip="kw:intelfile">Uncovered this investigation <span>${i.found.length}</span></div>
+          ${i.found.length?`<div class="inv-discoveries">${i.found.map(f=>intelTile(i.v,f,false)).join('')}</div>`:
+            '<p class="inv-empty">Every clue uncovers an unseen playbook page or hit reaction.</p>'}
+          <button class="btn sm inv-book-btn" data-a="book:${i.v}">Read known playbook</button>
+        </div>
+        ${(i.notes||[]).length?`<div class="inv-side-block"><div class="inv-small-head" data-tip="kw:field">Field advantages</div>
+          <ul class="inv-notes">${i.notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ul></div>`:''}
+        ${i.ovf?`<div class="inv-overflow" data-tip="kw:overflow">+${i.ovf} Intel banked from excess clues</div>`:''}
+        <div class="inv-rule-foot">Each clue uncovers intel. Clues past 4 also earn +1 Intel each.</div>
+      </aside>
+    </div>
+  </section>`;
+}
+function introView(){
+  const i=S.inv,d=VILLAINS[i.v],I=VINTEL[i.v];
+  return invCaseShell(i,`<div class="inv-lead-frame inv-intro-frame">
+    <div class="inv-lead-top"><span class="inv-stamp">CASE OPENED</span><span class="inv-lead-count">3 leads to pursue</span></div>
+    <h3>${esc(d.name)}</h3>
+    <p class="inv-story">${esc(I.intro)}</p>
+    <div class="inv-start-facts">
+      <span data-tip="kw:clues"><b>${i.clues}</b> starting clues</span>
+      <span data-tip="kw:vsize"><b>${esc(SHAPE_N[d.shape])}</b> villain size</span>
+      <span data-tip="kw:playbook"><b>${invCaseKnowledge(i).pages}</b> known pages</span>
+    </div>
+    ${i.found.length?`<div class="inv-new-intel"><div class="inv-small-head">Head start discoveries</div>
+      <div class="intels">${i.found.map(f=>intelTile(i.v,f,true)).join('')}</div></div>`:''}
+    <p class="inv-caption">Work three leads to uncover their playbook. Four or more clues lets your team enter prepared.</p>
+    <button class="btn pri inv-primary" data-a="invgo">Hit the streets →</button>
+  </div>`);
+}
+function invView(){
+  const i=S.inv,d=VILLAINS[i.v];if(i.intro)return introView();
+  const done=i.step>=3;
+  let content;
+  if(done){
+    const q=invQuality(i.clues);
+    content=`<div class="inv-lead-frame inv-finale">
+      <div class="inv-lead-top"><span class="inv-stamp">LAIR LOCATED</span><span class="inv-lead-count">${i.clues} clues secured</span></div>
+      <h3>${QUAL[q].n}!</h3>
+      <p class="inv-story">${QUAL[q].txt}</p>
+      ${q==='prepared'?coll('gearup',`<div><div class="eyebrow" data-tip="kw:gearup">Surprise advantage</div><h3>Adjust gear before the showdown</h3></div>`,
+        `<p class="small">You caught the villain off guard. Swap gear between the party and armory before entering.</p>
+          <div class="grid2">${party().map(h=>heroCard(h,'prep')).join('')}</div>`,true):''}
+      <button class="btn pri inv-primary" data-a="lair">Enter the lair →</button>
+    </div>`;
+  }else{
+    const e=evOf(i.events[i.step]),sig=VEVENTS[i.v]&&VEVENTS[i.v].includes(e);
+    const newIntel=i.res&&i.fresh?i.found.slice(-i.fresh):[];
+    content=`<div class="inv-lead-frame">
+      <div class="inv-lead-top"><span class="inv-stamp">LEAD ${i.step+1} / 3</span>
+        ${sig?`<span class="inv-lead-count" data-tip="kw:vlead">${esc(d.short)}'s trail</span>`:'<span class="inv-lead-count">New evidence</span>'}</div>
+      <h3>${esc(e.title)}</h3><p class="inv-story">${esc(e.txt(d.name))}</p>
+      ${i.res?`<div class="inv-result" aria-live="polite">
+        <div class="inv-small-head">Investigation result</div>
+        <p>${esc(i.res)}</p>
+        ${newIntel.length?`<div class="inv-new-intel"><div class="inv-small-head">New intelligence</div><div class="intels">${newIntel.map(f=>intelTile(i.v,f,true)).join('')}</div></div>`:''}
+        ${i.ovfFresh?`<p class="inv-overflow" data-tip="kw:overflow">+${i.ovfFresh} Intel from excess clues.</p>`:''}
+        <button class="btn pri inv-primary" data-a="invnext">${i.step<2?'Next lead →':'Locate the lair →'}</button></div>`:
+      `<div class="inv-choices" aria-label="Choose an approach">
+        <div class="inv-small-head">Choose your approach</div>
+        ${e.opts.map((o,n)=>`<button class="btn opt inv-choice" data-a="invopt:${n}" ${o.ok&&!o.ok()?'disabled':''}>
+          <span><b>${n+1<10?'0':''}${n+1}</b> ${esc(o.l)}</span><small>${esc(o.h)}</small>
+        </button>`).join('')}
+      </div>`}
+    </div>`;
+  }
+  return invCaseShell(i,content);
+}
 function afterView(){const a=S.after,d=VILLAINS[a.vkey];
   const eth=a.ethos?ETHOS[a.ethos]:null;
   const bad=/Defeat|Slipped/.test(a.headline);
@@ -1746,6 +1927,14 @@ document.addEventListener('click',e=>{
   const el=e.target.closest('[data-a]');if(!el||el.disabled||el.getAttribute('aria-disabled')==='true')return;const[a,p1,p2,p3]=el.dataset.a.split(':');
   switch(a){
     case 'view':S.view=p1;break;
+    case 'rofocus':{
+      const h=roster().find(h=>h.id===p1);if(!h)break;
+      S.view='roster';S.ui=S.ui||{};S.ui['ro-party']=true;S.ui['ro-bench']=true;
+      S.ui['h-'+h.id]=true;render();
+      if(!FAST){const sheet=document.querySelector('[data-cid="h-'+h.id+'"]');
+        if(sheet)sheet.scrollIntoView({block:'start',behavior:RM?'auto':'smooth'});}
+      return;
+    }
     case 'wsby':S.ui=S.ui||{};S.ui.wsBy=p1;break;
     case 'build':if(facOpen(p1)&&afford(FAC[p1].cost)){pay(FAC[p1].cost);S.facilities.push(p1)}break;
     case 'craft':case 'crafteq':if(GEAR[p1]&&afford(GEAR[p1].cost)&&anyAsk(GEAR[p1].cost)){pickAny(GEAR[p1]).then(pk=>{if(pk)doCraft(a,p1,p2,pk);render()});return}doCraft(a,p1,p2);break;

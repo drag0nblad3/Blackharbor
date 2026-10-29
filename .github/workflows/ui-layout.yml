@@ -1,0 +1,40 @@
+name: Validate game layouts and combat UI
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '*.css'
+      - '*.js'
+      - 'index.html'
+      - 'tests/layout-smoke.cjs'
+      - 'tests/simulated-battle.cjs'
+      - '.github/workflows/ui-layout.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser test environment
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+      - name: Check battle actions and dropdowns
+        run: node tests/simulated-battle.cjs
+      - name: Check desktop and phone layouts and textures
+        run: node tests/layout-smoke.cjs
+      - name: Upload UI screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-release-layout-screenshots
+          path: layout-shots/
+          if-no-files-found: ignore
