@@ -4,9 +4,11 @@ on:
     branches: [main]
     paths:
       - '*.css'
+      - '*.svg'
       - '*.js'
       - 'index.html'
       - 'tests/layout-smoke.cjs'
+      - 'tests/battle-materials.cjs'
       - 'tests/simulated-battle.cjs'
       - '.github/workflows/ui-layout.yml'
   workflow_dispatch:
@@ -29,6 +31,8 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Check battle actions and dropdowns
         run: node tests/simulated-battle.cjs
+      - name: Check illustrated battle materials in the real game
+        run: node tests/battle-materials.cjs
       - name: Check desktop and phone layouts and textures
         run: node tests/layout-smoke.cjs
       - name: Upload UI screenshots
