@@ -6,9 +6,17 @@ const assert=require('node:assert/strict');
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   try{
     await page.goto('file://'+process.cwd()+'/index.html');
+    const early=await page.evaluate(async()=>{
+      newCampaign();recruitQuick('volt');
+      const code=await bhSaveEncode(S),decoded=await bhSaveDecode(code);
+      return {villains:decoded.state.villains.length,pool:decoded.state.pool.length};
+    });
+    assert.equal(early.villains,0,'Early campaigns do not reveal bosses yet');
+    assert.ok(early.pool>0,'Early campaigns retain a villain pool');
+    console.log('PASS: early game saves work before villain reveal');
     const ready=await page.evaluate(()=>{
-      newCampaign();S.tut=null;S.tutDone=true;S.guide=null;
-      recruitQuick('volt');
+      newCampaign();S.tut=null;S.tutDone=true;S.guide=null;S.tipsOff=true;S.tips=[];
+      recruitQuick('volt');recruitQuick('lynx');recruitQuick('wisp');recruitQuick('goliath');
       S.trust=17;S.heroes[0].name='Étoile 星 🔥';
       S.chronicle.push('First issue: 東京 saved.');
       render();
@@ -67,7 +75,7 @@ const assert=require('node:assert/strict');
     assert.match(await page.locator('#bh-save-preview').innerText(),/Volume 1/);
     assert.equal(await page.evaluate(()=>S.trust),91,'Checking save must not replace campaign');
     await page.locator('[data-bh-import]').click();
-    await page.waitForFunction(()=>window.S&&S.trust===17&&S.heroes?.[0]?.name==='Étoile 星 🔥');
+    await page.waitForFunction(()=>typeof S!=='undefined'&&S.trust===17&&S.heroes?.[0]?.name==='Étoile 星 🔥');
     assert.equal(await page.evaluate(()=>localStorage.getItem('blackharbor-v4')),null,'Live storage key is untouched');
     const backup=await page.evaluate(()=>JSON.parse(localStorage.getItem(KEY+'-before-import')));
     assert.equal(backup.trust,91,'Import backs up existing campaign');
@@ -78,10 +86,11 @@ const assert=require('node:assert/strict');
     await page.locator('[data-bh-import]').waitFor({state:'visible'});
     assert.match(await page.locator('#bh-save-preview').innerText(),/Restore previous autosave/);
     await page.locator('[data-bh-import]').click();
-    await page.waitForFunction(()=>window.S&&S.trust===91);
+    await page.waitForFunction(()=>typeof S!=='undefined'&&S.trust===91);
     console.log('PASS: local recovery backup restores previous campaign');
     await page.locator('[data-save-open]').click();
     await page.keyboard.press('Escape');
+    await page.locator('#bh-save-dialog').waitFor({state:'detached'});
     assert.equal(await page.locator('#bh-save-dialog').count(),0,'Escape closes modal');
     console.log('PASS: Escape closes save modal');
     // The same format must preserve a mid-combat position and unit actions.
@@ -111,6 +120,14 @@ const assert=require('node:assert/strict');
     });
     assert.equal(desktopFit,true,'Save dialog stays inside desktop viewport');
     console.log('PASS: Save / Load is usable at mobile and desktop widths');
+    await page.locator('[data-bh-tab="import"]').click();
+    await page.locator('#bh-save-input').fill(battleCode);
+    await page.locator('[data-bh-check]').click();
+    await page.locator('[data-bh-import]').waitFor({state:'visible'});
+    await page.locator('[data-bh-import]').click();
+    await page.waitForFunction(()=>typeof S!=='undefined'&&S.phase==='sd'&&S.sd?.units?.[0]?.acted&&S.sd?.v===S.sd?.vl?.[S.sd.vi||0]?.v);
+    assert.equal(await page.evaluate(()=>S.sd.busy),false,'Reloaded combat must be playable, not left busy');
+    console.log('PASS: importing a mid-combat save restores the showdown and action state');
     assert.deepEqual(errors,[],'No browser JavaScript errors');
   }finally{await browser.close()}
 })().catch(e=>{console.error(e);process.exit(1)});
