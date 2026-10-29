@@ -17,4 +17,9 @@ jobs:
           node-version: 22
       # Loads every game file headless and plays one seeded campaign; fails on a script error
       - run: node tools/q.js villain
+      - run: node tests/gameplay-text.cjs
+      - run: node tests/payload-bombs.cjs
+      - run: node tests/cantor-rework.cjs
+      - run: node tests/balance.cjs
+      - run: node tests/boss-selection.cjs
       - run: node tools/sim.js --runs 1 --abil

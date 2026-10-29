@@ -165,7 +165,7 @@ function startShowdown(opt={}){
   const sd=S.sd={N,finale:fin,vkey:keys[0],quality:q,round:q==='ambush'?0:1,obs:[],units:[],hench:[],civs:[],vl:[],vi:0,
     tdk:{},walls:[],pits:[],haz:[],bombs:[],beams:[],sel:null,mode:null,busy:false,log:[],evac:0,harmed:0,woundsBy:{},result:null,fx:[],intro:!FAST};
   sd.hexv=1;const spots=fin?[[2,1],[7,1]]:[[4,1]];
-  keys.forEach((k,i)=>{const vs=vState(k),sh=VILLAINS[k].shape,big=sh==='big',ser=sh==='serpent';sd.vl.push({key:k,v:{x:spots[i][0]+(big?1:0),y:spots[i][1]+(big||ser?1:0)+(k==='grid'?2:0),shape:sh,face:5,level:vs.level,deck:shuffle(vs.deck.map(e=>buildCard(k,e))),discard:[],wounds:[],last:null}});
+  keys.forEach((k,i)=>{const vs=vState(k),sh=VILLAINS[k].shape,big=sh==='big',ser=sh==='serpent';sd.vl.push({key:k,v:{x:spots[i][0]+(big?1:0),y:spots[i][1]+(big||ser?1:0)+(k==='grid'?2:0),shape:sh,face:5,level:vs.level,deck:shuffle(vs.deck.map(e=>buildCard(k,e,vs.level))),discard:[],wounds:[],last:null}});
     if(ser){const v=sd.vl[sd.vl.length-1].v;v.body=[0,1,2,3].map(j=>({x:Math.min(N-1,spots[i][0]+j),y:spots[i][1]}));v.ate=0;v.grow=0}
     if(sh==='swarm'){const v=sd.vl[sd.vl.length-1].v;const sx=spots[i][0],taken=(x,y)=>sd.vl.slice(0,-1).some(o=>inV(o.v,x,y));v.sw=[[-2,1],[2,1],[-1,2],[1,2],[-3,2],[3,2]].map(([dx,y])=>({x:sx+dx,y:y+spots[i][1],f:5})).filter(p=>inB(p.x,p.y)&&!taken(p.x,p.y)).slice(0,2);v.pk=['hive','sting','shell'].slice(0,v.sw.length+1)}
     if(k==='noct')sd.vl[sd.vl.length-1].v.hide=q!=='prepared'});
@@ -177,7 +177,7 @@ function startShowdown(opt={}){
   hs.forEach(h=>{h.comp=stat(h,'maxComp');h.cd=0});
   lastPos={};
   sd.vl.forEach((o,vi)=>{const n=Math.min(4,fin?Math.ceil(o.v.level/2):o.v.level)+(q==='ambush'?1:0);
-    for(let i=0;i<n;i++){const t=pick(freeTiles((x,y)=>y>=1&&y<=4&&Math.abs(x-(o.v.x+.5))<=3))||pick(freeTiles((x,y)=>y<=5));if(t)sd.hench.push({id:'h'+vi+'_'+i,owner:o.key,x:t.x,y:t.y,hp:henchHp(2)})}
+    for(let i=0;i<n;i++){const t=pick(freeTiles((x,y)=>y>=1&&y<=4&&Math.abs(x-(o.v.x+.5))<=3))||pick(freeTiles((x,y)=>y<=5));if(t)sd.hench.push({id:'h'+vi+'_'+i,owner:o.key,x:t.x,y:t.y,hp:regularHenchHp(o.key)})}
     if(eliteOf(o.key)&&o.v.level>=3){const t=freeTiles((x,y)=>dV({x,y},o.v)===1)[0]||pick(freeTiles((x,y)=>y<=4));if(t){sd.hench.push(mkElite(o,t));sd.elites=(sd.elites||[]).concat(o.key)}}});
   if(S.facilities.includes('dojo'))sd.units.forEach(u=>u.evaNext=6);
   /* about a third of civilians start deep in the lair, behind or beside the villain */
@@ -275,7 +275,7 @@ function strikeAnim(style,from,to,col,tid){
 const ctrU=u=>HC(u.x,u.y),ctrV=()=>vCtr(S.sd.v);
 
 /* ---------- card reveals: comic book opening (draws) and torn pages (wounds) ---------- */
-const TYPE_SFX={multi:'BARRAGE!',walls:'BUILD!',hazard:'MELTDOWN!',cage:'CAGED!',shrapnel:'DEMOLISH!',fortify:'FORTIFY!',charge:'CHARGING!',strike:'STRIKE!',sweep:'SHOCKWAVE!',summon:'BACKUP!',endanger:'HOSTAGE!',taunt:'TAUNT!',vanish:'POOF!',reanimate:'RECHARGE!',puppet:'OBEY!',rampage:'RAMPAGE!',swallow:'GULP!',pull:'ATTRACT!',repel:'REPEL!',fade:'FADE…',converge:'SWARM!',scatter:'SCATTER!',leap:'BOING!',bomb:'TSSS!',detonate:'KABOOM!',airburst:'LOOK UP!',beam:'ZZARK!',burrow:'SHUNK!'};
+const TYPE_SFX={multi:'BARRAGE!',walls:'BUILD!',hazard:'MELTDOWN!',cage:'CAGED!',shrapnel:'DEMOLISH!',fortify:'FORTIFY!',charge:'CHARGING!',strike:'STRIKE!',sweep:'SHOCKWAVE!',summon:'BACKUP!',endanger:'HOSTAGE!',taunt:'TAUNT!',henchvolley:'OPEN FIRE!',vanish:'POOF!',reanimate:'RECHARGE!',puppet:'OBEY!',rampage:'RAMPAGE!',swallow:'GULP!',pull:'ATTRACT!',repel:'REPEL!',fade:'FADE…',converge:'SWARM!',scatter:'SCATTER!',leap:'BOING!',bomb:'TSSS!',swapbomb:'SWITCH!',airburst:'LOOK UP!',beam:'ZZARK!',burrow:'SHUNK!'};
 const TAC_SFX={weak:'CRACK!',armor:'TINK!',over:'OPENING!',counter:'COUNTER!',mono:'BLAH BLAH…',shield:'NO!',escape:'HA HA!',glance:'SOLID!'};
 const TEAR=(()=>{const z=[];for(let i=0;i<=12;i++)z.push([i*100/12,48+(i%2?6:-5)+((i*37)%5)-2]);return z})();
 const tearTop=`polygon(0 0,100% 0,${TEAR.slice().reverse().map(([x,y])=>`${x}% ${y}%`).join(',')})`;
@@ -347,7 +347,9 @@ function vWarn(){const sd=S.sd;if(!sd)return;sd.vl.forEach(o=>{const v=o.v,top=v
   if(v.warn===top.uid)return;v.warn=top.uid;log('vill',`${VILLAINS[o.key].short} shouts: “${top.shout}”`)})}
 
 /* ---------- combat ---------- */
-function damageHero(u,n){const h=heroOf(u);if(u.stasis&&n>0){fxU(u,'NO EFFECT','good');log('hero',`Time Stop: ${h.name} takes no damage.`);return}if(S.cheat&&S.cheat.god){log('sys',`${h.name} shrugs off ${n} damage (invincible).`);return}if(n>1&&setOn(h,'architect')){n--;log('hero',`Load-Bearing: ${h.name} takes 1 less.`)}if(n>2&&auraOn(u,'brace')){n--;log('hero',`Shield Wall: ${h.name} takes 1 less.`)}if(u.dr&&n>0){const m=Math.max(1,n-u.dr);log('hero',`${h.name}'s guard soaks ${n-m} damage.`);n=m}if(u.absorb&&n>0){const m=Math.min(u.absorb,n);u.absorb-=m;n-=m;log('hero',`${h.name}'s shield absorbs ${m} damage${u.absorb?` (${u.absorb} left)`:' and fades'}.`)}h.hp-=n;u.hurtAt=Date.now();if(n>0&&h.hp>0)painGain(u,h);if(h.hp<=0&&!u.anti&&S.facilities.includes('antivenom')){h.hp=1;u.anti=true;fxU(u,'ANTIVENOM!','good');log('hero',`Antivenom Lab: ${h.name} stays on their feet with 1 health.`)}if(h.hp<=0){h.hp=0;u.ko=true;u.guard=false;log('vill',`${h.name} is down!`)}}
+/* Combined Guard reduction per hit scales with total discipline level. */
+const guardCap=h=>lvlOf(h)<=2?1:lvlOf(h)<=4?2:3;
+function damageHero(u,n){const h=heroOf(u);if(u.stasis&&n>0){fxU(u,'NO EFFECT','good');log('hero',`Time Stop: ${h.name} takes no damage.`);return}if(S.cheat&&S.cheat.god){log('sys',`${h.name} shrugs off ${n} damage (invincible).`);return}let guardSpent=0;const guard=(amt,label)=>{const cut=Math.min(Math.max(0,amt),Math.max(0,guardCap(h)-guardSpent),Math.max(0,n-1));if(cut){n-=cut;guardSpent+=cut;log('hero',label(cut))}};if(n>1&&setOn(h,'architect'))guard(1,()=>`Load-Bearing: ${h.name} takes 1 less.`);if(n>2&&auraOn(u,'brace'))guard(1,()=>`Shield Wall: ${h.name} takes 1 less.`);if(u.dr&&n>0)guard(u.dr,m=>`${h.name}'s guard soaks ${m} damage.`);if(u.absorb&&n>0){const m=Math.min(u.absorb,n);u.absorb-=m;n-=m;log('hero',`${h.name}'s shield absorbs ${m} damage${u.absorb?` (${u.absorb} left)`:' and fades'}.`)}h.hp-=n;u.hurtAt=Date.now();if(n>0&&h.hp>0)painGain(u,h);if(h.hp<=0&&!u.anti&&S.facilities.includes('antivenom')){h.hp=1;u.anti=true;fxU(u,'ANTIVENOM!','good');log('hero',`Antivenom Lab: ${h.name} stays on their feet with 1 health.`)}if(h.hp<=0){h.hp=0;u.ko=true;u.guard=false;log('vill',`${h.name} is down!`)}}
 function harmCiv(c,why){const sd=S.sd;sd.civs=sd.civs.filter(o=>o!==c);sd.harmed++;fxP(c.x,c.y,'AAAH!','vhit');log('vill',`A civilian is hurt by ${why}.`)}
 /* Civilians are saved on an exit hex (sd.exits). c.f = id of the hero they follow, c.held = id of the henchman dragging them. */
 function mkExits(n,fin){const e=[`0,${n-1}`,`${n-1},${n-1}`];if(fin)e.push(`${Math.random()<.5?0:n-1},${Math.floor(n/2)}`);return e}
@@ -369,6 +371,75 @@ function civFollow(u){const sd=S.sd,fs=followers(u);if(!fs.length)return;
     const r=reach(c,lim,c);let best=null,bd=1e9;for(const k in r){const[x,y]=k.split(',').map(Number);if(r[k]<bd&&near({x,y})){bd=r[k];best={x,y}}}
     if(best){c.x=best.x;c.y=best.y;placed.push(c);civHazard(c);if(isExit(c))saveCiv(c,u)}
     else{c.f=null;fxP(c.x,c.y,'WAIT!','miss');log('hero',`A civilian can't keep up with ${heroOf(u).name} and is left behind.`)}}}
+
+/* Avoid Damage uses one action. Nearby safe cover improves the defense, and
+   a missed targeted attack can strike cover if it lies in the attack path. */
+function avoidCover(u){
+  const sd=S.sd,beam=litMap(),out=[];
+  for(const p of nbrs(u)){
+    if(!inB(p.x,p.y))continue;
+    const k=p.x+','+p.y;
+    if(sd.pits.includes(k)||sd.haz.some(h=>h.k===k)||(sd.bombs||[]).some(b=>b.k===k)||beam[k])continue;
+    if(sd.walls.some(w=>w.k===k))out.push({...p,k,kind:'wall'});
+    else if(sd.obs.includes(k))out.push({...p,k,kind:'rubble'});
+    else if(sd.term&&sd.term.k===k)out.push({...p,k,kind:'terminal'});
+    else {
+      const ally=sd.units.find(o=>o!==u&&!o.ko&&o.x===p.x&&o.y===p.y);
+      if(ally)out.push({...p,k,kind:'hero',unit:ally});
+      else{const civ=sd.civs.find(o=>o.x===p.x&&o.y===p.y);if(civ)out.push({...p,k,kind:'civilian',unit:civ})}
+    }
+  }
+  return out;
+}
+const avoidEva=u=>u.avoidDamage?(avoidCover(u).length?5:3):0;
+function avoidDamage(){
+  const sd=S.sd,u=sd&&sd.units[sd.sel];
+  if(!u||u.acted||u.ko||u.avoidDamage||sd.busy||sd.result)return;
+  return act(async()=>{
+    u.acted=true;u.avoidDamage=true;
+    await A.shield(ctrU(u),COL.cyan,true);
+    const n=avoidEva(u);
+    fxU(u,'AVOID +'+n,'good');
+    log('hero',heroOf(u).name+' avoids damage: +'+n+' evasion until the next round'+(n===5?' with adjacent cover':'')+'.');
+  });
+}
+async function avoidRedirect(u,source,dmg,label){
+  if(!u.avoidDamage)return false;
+  const covers=avoidCover(u);
+  /* Ranged attacks must pass through the cover hex. An adjacent melee miss
+     can strike a target beside both attacker and defender. */
+  const origins=source.body||source.sw||source.shape?vCells(source):[source];
+  const found=[];
+  for(const from of origins){
+    const dist=cheb(from,u),line=dist>1?hexLine(from,u):[];
+    for(const cover of covers){
+      const valid=dist<=1?cheb(from,cover)<=1:line.some(p=>p.x===cover.x&&p.y===cover.y);
+      if(valid)found.push({cover,dist:cheb(from,cover)});
+    }
+  }
+  if(!found.length)return false;
+  const priority={wall:0,rubble:1,terminal:2,hero:3,civilian:4};
+  found.sort((a,b)=>priority[a.cover.kind]-priority[b.cover.kind]||a.dist-b.dist);
+  const c=found[0].cover,sd=S.sd,name=heroOf(u).name;
+  const target=c.kind==='hero'?heroOf(c.unit).name:c.kind==='civilian'?'a civilian':c.kind==='wall'?'a wall':c.kind==='rubble'?'rubble':'the evidence terminal';
+  log('hero',name+' ducks behind '+target+'; '+label+' strikes it instead.');
+  if(c.kind==='hero'){
+    if(!await wardBlocks(c.unit)){damageHero(c.unit,dmg);fxU(c.unit,'STRAY HIT!','vhit')}
+  }else if(c.kind==='civilian'){
+    harmCiv(c.unit,'a redirected '+label);
+  }else if(c.kind==='terminal'){
+    termHit(p=>p.x===c.x&&p.y===c.y,label);
+  }else if(c.kind==='rubble'){
+    sd.obs=sd.obs.filter(k=>k!==c.k);fxP(c.x,c.y,'SMASH!','vhit');
+  }else{
+    const wall=sd.walls.find(w=>w.k===c.k);
+    if(wall&&!wall.perm){sd.walls=sd.walls.filter(w=>w!==wall);fxP(c.x,c.y,'CRACK!','vhit')}
+    else fxP(c.x,c.y,'BLOCKED!','good');
+  }
+  render();
+  return true;
+}
+function rallySpirit(){const sd=S.sd,u=sd&&sd.units[sd.sel];if(!u||u.ko||u.acted||sd.busy||sd.result)return;sd.mode=sd.mode==='rallySpirit'?null:'rallySpirit';render()}
 function escort(){const sd=S.sd,u=sd.units[sd.sel];if(!u||u.ko||(u.acted&&!u.freeEvac))return;const h=heroOf(u),cs=sd.civs.filter(c=>c.f!==u.hid&&!civHeld(c)&&cheb(c,u)<=1);if(!cs.length)return;
   return act(async()=>{if(u.freeEvac)u.freeEvac=false;else u.acted=true;A.lunge('h'+u.hid,HC(cs[0].x,cs[0].y));await Promise.all(cs.map(c=>A.sparkle(HC(c.x,c.y),COL.yel)));
     cs.forEach(c=>{c.f=u.hid;fxP(c.x,c.y,'THIS WAY!','good')});log('hero',`${h.name} gathers ${cs.length} civilian${cs.length>1?'s':''}. They follow ${h.name} until they reach an exit.`);
@@ -394,11 +465,11 @@ async function henchGrab(hm){const sd=S.sd,o=sd.vl.find(o=>o.key===(hm.owner||sd
   return true}
 async function wardBlocks(u){if(!u.ward)return false;u.ward=false;await A.shield(ctrU(u),COL.magic,true);fxU(u,'WARDED!','good');log('hero',`A ward turns the blow aside from ${heroOf(u).name}.`);render();return true}
 async function vHit(u,dmg,label,style){const h=heroOf(u);if(S.sd.v.cursed&&dmg>0)dmg=Math.max(1,dmg-2);faceTo(u);render();await strikeAnim(style,ctrV(),ctrU(u),COL.mag,'v'+S.sd.vi);
-  let r=d20();/* Version 115 (Tyler): Lucky Coin no longer affects villain attacks */const acc=vStat('acc'),eva=stat(h,'eva')+(u.buffEva||0)+(u.evaNext||0);if(u.evaNext){log('hero',`Wind Ward: +${u.evaNext} evasion for ${h.name}.`);u.evaNext=0};const hit=r===20||(r!==1&&r+acc>=eva);
+  let r=d20();/* Version 115 (Tyler): Lucky Coin no longer affects villain attacks */const acc=vStat('acc'),eva=stat(h,'eva')+(u.buffEva||0)+(u.evaNext||0)+avoidEva(u);if(u.evaNext){log('hero',`Wind Ward: +${u.evaNext} evasion for ${h.name}.`);u.evaNext=0};const hit=r===20||(r!==1&&r+acc>=eva);
   log('vill',`${label} at ${h.name}: rolled ${r}+${acc} vs evasion ${eva}. ${hit?`Hit for ${dmg}.`:'Miss.'}`);
   if(hit&&await wardBlocks(u))return false;
   if(hit&&u.reflect&&!S.sd.v.down){u.reflect=0;log('hero',`${h.name} turns the blow back: ${VILLAINS[S.sd.vkey].short} tears a page.`);await woundAnim(`${h.name}: reflected.`)}
-  fxU(u,hit?pick(SFX_VHIT):'SWISH!',hit?'vhit':'miss');if(hit)damageHero(u,dmg);render();if(!hit)await riposte(u);return hit}
+  fxU(u,hit?pick(SFX_VHIT):'SWISH!',hit?'vhit':'miss');if(hit)damageHero(u,dmg);render();if(!hit){if(style!=='none')await avoidRedirect(u,S.sd.v,dmg,label);await riposte(u)}return hit}
 /* Version 117 (Tyler): a conditional target (weakest, farthest) is picked only among heroes the villain can reach this turn
    (within move + range, by hex distance). If nobody is in reach it goes for the nearest hero. */
 function pickTarget(mode,reach){const sd=S.sd;let L=live();if(!L.length)return null;
@@ -430,15 +501,29 @@ async function execCard(c){const sd=S.sd,v=sd.v,vn=VILLAINS[sd.vkey].name;
       await A.smoke(ctrV(),3);vPut(v,sp.x,sp.y);noFlip.add('v'+sd.vi);const k0=from.x+','+from.y;if(!sd.obs.includes(k0))sd.obs.push(k0);render();await A.smoke(ctrV(),3);fxV('SHUNK!','say');
       log('vill',`${vn} dives underground and bursts up next to ${heroOf(t).name}, leaving rubble where he went down.`);await vHit(t,dmgScale(c.dmg),c.n,'slash');break}
     case 'rampage':{const t=pickTarget('nearest');if(t)await vMove(()=>vToward(t,c.mv,1),c.crush||0,c.n);await sweep(1,dmgScale(c.dmg),c.n);break}
-    case 'summon':{const added=[];for(let i=0;i<c.k;i++){const t=freeTiles().sort((a,b)=>dV(a,v)-dV(b,v))[0];if(t){const m={id:'s'+Date.now()+i,owner:sd.vkey,x:t.x,y:t.y,hp:henchHp(2)};sd.hench.push(m);added.push(m)}}
+    case 'summon':{const added=[];for(let i=0;i<c.k;i++){const t=freeTiles().sort((a,b)=>dV(a,v)-dV(b,v))[0];if(t){const m={id:'s'+Date.now()+i,owner:sd.vkey,x:t.x,y:t.y,hp:regularHenchHp(sd.vkey)};sd.hench.push(m);added.push(m)}}
       fxV('GET THEM!','say');render();await Promise.all(added.map(m=>A.smoke(ctrU(m))));log('vill',`${added.length} ${VILLAINS[sd.vkey].hench.name.toLowerCase()}s arrive.`);break}
     case 'endanger':{const cv=sd.civs.slice().sort((a,b)=>dV(a,v)-dV(b,v))[0];if(cv)faceTo(cv);
-      if(!cv){const t=pickTarget('nearest');if(t){await vMove(()=>vToward(t,2,1));if(dV(t,v)<=1)await vHit(t,dmgScale(2),c.n,'slash')}break}
+      const undermine=u=>{const h=heroOf(u);h.comp=Math.max(0,h.comp-c.comp);fxU(u,'RATTLED!','vhit');
+        log('vill',`${c.n}: ${h.name} loses ${c.comp} Composure.`);render()};
+      if(!cv){const t=pickTarget('nearest');if(t){await vMove(()=>vToward(t,2,1));
+        if(dV(t,v)<=1){if(c.comp)undermine(t);else await vHit(t,dmgScale(2),c.n,'slash')}}break}
       await vMove(()=>vToward(cv,2,1));const prot=live().find(u=>cheb(u,cv)<=1);
-      if(prot){A.lunge('h'+prot.hid,ctrU(cv));await strikeAnim(vStyle(c),ctrV(),ctrU(prot),COL.mag,'v'+S.sd.vi);log('hero',`${heroOf(prot).name} shields a civilian and takes ${dmgScale(c.dmg||2)}.`);
-        if(!await wardBlocks(prot)){await A.shield(ctrU(prot),COL.yel);fxU(prot,'OOF!','vhit');damageHero(prot,dmgScale(c.dmg||2))}}
+      if(prot){A.lunge('h'+prot.hid,ctrU(cv));await strikeAnim(vStyle(c),ctrV(),ctrU(prot),COL.mag,'v'+S.sd.vi);
+        if(c.comp){log('hero',`${heroOf(prot).name} shields a civilian but is rattled by ${vn}'s leverage.`);undermine(prot)}
+        else{log('hero',`${heroOf(prot).name} shields a civilian and takes ${dmgScale(c.dmg||2)}.`);
+          if(!await wardBlocks(prot)){await A.shield(ctrU(prot),COL.yel);fxU(prot,'OOF!','vhit');damageHero(prot,dmgScale(c.dmg||2))}}}
       else if(dV(cv,v)<=3){await strikeAnim(vStyle(c),ctrV(),ctrU(cv),COL.mag,'v'+S.sd.vi);harmCiv(cv,c.n)}
       else{log('vill',`${c.n} falls short. The civilian runs.`);fxP(cv.x,cv.y,'EEK!','miss')}break}
+    case 'henchvolley':{
+      let fired=0;
+      for(const hm of [...sd.hench]){
+        if(sd.result)break;
+        if(hm.owner!=='cantor'||hm.elite||!sd.hench.includes(hm))continue;
+        if(await henchShoot(hm,VILLAINS.cantor.hench,live()))fired++;
+      }
+      log('vill',`${vn} orders every hired gun to fire! ${fired} shot${fired===1?'':'s'} fired.`);
+      break}
     case 'taunt':{await A.ring(ctrV(),COL.yel,c.r*2+2,{dashed:true,fill:false,count:3});
       const hit=live().filter(u=>dV(u,v)<=c.r);const lm=litMap(),ex=u=>(c.bombx&&(sd.bombs||[]).some(b=>cheb(bombP(b),u)<=1)?1:0)+(c.litx&&lm[u.x+','+u.y]?1:0);hit.forEach(u=>{const h=heroOf(u);h.comp=Math.max(0,h.comp-c.amt-ex(u));fxU(u,'GRR!','miss')});
       log('vill',hit.length?`${c.n}: ${hit.map(u=>heroOf(u).name).join(', ')} lose ${c.amt} composure.`:`${c.n}: nobody is close enough to hear.`);break}
@@ -528,21 +613,33 @@ async function execCard(c){const sd=S.sd,v=sd.v,vn=VILLAINS[sd.vkey].name;
     case 'leap':{let n=0;const done=[];
       for(let i=0;i<(c.cnt||1)&&!sd.result;i++){const L=live().filter(u=>!done.includes(u)&&dV(u,v)<=c.mv).sort((a,b)=>dV(a,v)-dV(b,v));let t=null,sp=null;
         for(const u of L){const s=leapSpot(u);if(s){t=u;sp=s;break}}
-        if(!t)break;done.push(t);const lit=c.fuse&&dropBomb(t.x,t.y,c.fuse,dmgScale(c.dmg));await vLeap(t,sp);n++;
+        if(!t)break;done.push(t);const lit=c.fuse&&dropBomb(t.x,t.y,c.fuse,dmgScale(c.dmg),c.radius||1);await vLeap(t,sp);n++;
         if(lit)fxU(t,'TSSS!','vhit');log('vill',`${vn} vaults over ${heroOf(t).name}${lit?' and leaves a lit bomb at their feet':''}.`);render()}
       if(!n){const t=pickTarget('nearest');if(!t)break;log('vill',`Nobody close enough has open ground behind them, so ${vn} bounds toward ${heroOf(t).name}.`);await vMove(()=>vToward(t,c.mv,1));
-        if(c.fuse&&dV(t,v)<=3){await A.throw(ctrV(),ctrU(t),'bomb');if(dropBomb(t.x,t.y,c.fuse,dmgScale(c.dmg))){fxU(t,'TSSS!','vhit');log('vill',`She tosses the bomb at ${heroOf(t).name} instead.`)}}else fxV('TCH!','say')}
+        if(c.fuse&&dV(t,v)<=3){await A.throw(ctrV(),ctrU(t),'bomb');if(dropBomb(t.x,t.y,c.fuse,dmgScale(c.dmg),c.radius||1)){fxU(t,'TSSS!','vhit');log('vill',`She tosses the bomb at ${heroOf(t).name} instead.`)}}else fxV('TCH!','say')}
       render();break}
     case 'bomb':{const inR=()=>{const L=live().filter(u=>dV(u,v)<=c.rng).sort((a,b)=>dV(a,v)-dV(b,v));return c.tgt==='farthest'?L.reverse():L};let ts=inR();
       if(!ts.length){const t=pickTarget('nearest');if(t)await vMove(()=>vToward(t,2,c.rng));ts=inR()}
       ts=ts.slice(0,c.cnt||1);if(!ts.length){log('vill',`${c.n}: nobody in range to throw at.`);fxV('TCH!','say');break}
       faceTo(ts[0]);render();const got=[];
-      for(const t of ts){await A.throw(ctrV(),ctrU(t),'bomb');if(dropBomb(t.x,t.y,c.fuse,dmgScale(c.dmg))){got.push(t);fxU(t,'TSSS!','vhit')}render()}
-      log('vill',got.length?`${c.n}: ${got.length>1?`${got.length} lit bombs land`:'a lit bomb lands'} at ${got.map(t=>heroOf(t).name).join(' and ')}'s feet. ${c.fuse} villain turn${c.fuse>1?'s':''} to get clear.`:`${c.n}: she is out of bombs, ${BOMB_MAX} are already lit.`);break}
-    case 'detonate':{const L=(sd.bombs||[]).slice();await A.ring(ctrV(),COL.yel,3,{inward:true,count:2});
-      if(!L.length){fxV('CLICK…','miss');log('vill',`${vn} squeezes the detonator, but there are no bombs left to blow.`);break}
-      log('vill',`${vn} hits the switch. ${L.length>1?`${L.length} bombs go`:'A bomb goes'} off at once!`);await blowBombs(L,c.dmg||0);break}
-    case 'airburst':{const m=N>>1,sp=hexesWithin({x:m,y:m},2).sort((a,b)=>cheb(a,{x:m,y:m})-cheb(b,{x:m,y:m})).find(p=>(p.x===v.x&&p.y===v.y)||vFits(p.x,p.y,true));
+      for(const t of ts){await A.throw(ctrV(),ctrU(t),'bomb');if(dropBomb(t.x,t.y,c.fuse,dmgScale(c.dmg),c.radius||1)){got.push(t);fxU(t,'TSSS!','vhit')}render()}
+      log('vill',got.length?`${c.n}: ${got.length>1?`${got.length} lit bombs land`:'a lit bomb lands'} at ${got.map(t=>heroOf(t).name).join(' and ')}'s feet. 1 villain turn to get clear. Blast covers ${1+3*(c.radius||1)*((c.radius||1)+1)} hexes.`:`${c.n}: she is out of bombs, ${BOMB_MAX} are already lit.`);break}
+    case 'swapbomb':{
+       // Switch with an allied henchman and leave a normal seven-hex bomb.
+       const allies=sd.hench.filter(m=>m.owner===sd.vkey&&
+         !blocked(m.x,m.y,{self:m,ignoreV:true})).sort((a,b)=>dV(a,v)-dV(b,v));
+       const chosen=allies[0],from={x:v.x,y:v.y};
+       if(!chosen){log('vill',`${vn} has no henchman available to swap with.`);fxV('CLICK…','miss');break}
+       if(sd.bombs.length>=BOMB_MAX&&!sd.bombs.some(b=>b.k===from.x+','+from.y)){
+         log('vill',`${vn} has no spare bomb to leave behind.`);fxV('CLICK…','miss');break}
+       const to={x:chosen.x,y:chosen.y};
+       await A.smoke(ctrV(),4);vPut(v,to.x,to.y);chosen.x=from.x;chosen.y=from.y;
+       noFlip.add('v'+sd.vi);
+       dropBomb(from.x,from.y,1,dmgScale(c.dmg),1);
+       render();await A.smoke(ctrV(),4);fxV('SWITCH!','say');
+       log('vill',`${vn} swaps places with ${hName(chosen)} and leaves a seven-hex bomb at her old position. It detonates next villain turn.`);
+       break}
+     case 'airburst':{const m=N>>1,sp=hexesWithin({x:m,y:m},2).sort((a,b)=>cheb(a,{x:m,y:m})-cheb(b,{x:m,y:m})).find(p=>(p.x===v.x&&p.y===v.y)||vFits(p.x,p.y,true));
       if(sp&&(sp.x!==v.x||sp.y!==v.y)){fxV('BOING!','say');vPut(v,sp.x,sp.y);render();await sleep(FAST?0:RM?60:360)}
       {const t=pickTarget('nearest');if(t)faceTo(t)}const z=chargeZone(c.zone);sd.v.charge={n:c.n,dmg:dmgScale(c.dmg),zone:z,w0:v.wounds.length,need:chargeNeed(v)};render();
       await A.ring(ctrV(),COL.yel,4,{inward:true,count:3});fxV('CHARGING…','say');log('vill',`${vn} lands in the middle of the room and starts the countdown on ${c.n}. ${z.length} hexes are marked. Tear ${chargeNeed(v)} pages or get clear before it fires.`);break}
@@ -568,6 +665,7 @@ const hName=hm=>hm.elite?eliteOf(hm.owner||S.sd.vkey).name:'the '+VILLAINS[hm.ow
 function mkElite(o,t){const L=o.v.level;return {id:'e_'+o.key,owner:o.key,x:t.x,y:t.y,hp:henchHp(2+L),elite:1}}
 /* Version 107 (Tyler): Hive Jammer takes 1 health off every henchman, down to 1 */
 const henchHp=n=>S.facilities.includes('jammer')?Math.max(1,n-1):n;
+const regularHenchHp=owner=>henchHp(owner==='cantor'?1:2);
 const eliteEva=hm=>9+Math.floor(henchLv(hm)/2);
 function henchLv(hm){const sd=S.sd,o=sd.vl.find(o=>o.key===(hm.owner||sd.vkey));return o?o.v.level:sd.v.level}
 /* Version 89 (Tyler): three more special henchmen. Gallows' Failed Experiment is slow (moves 2), hits 1 harder and shrugs off the first hit
@@ -580,15 +678,26 @@ async function henchAct(hm){const sd=S.sd,L=live();if(!L.length)return;const def
     if(best){hm.x=best[0];hm.y=best[1];render();await sleep(300)}}
     const adj=L.filter(u=>cheb(u,hm)<=def.rng);if(o&&!adj.length)return}
   else if(!hm.elite&&await henchGrab(hm))return;
-  if(hm.elite)await eliteTurn(hm,def,L);if(sd.result||!sd.hench.includes(hm))return;
+  if(hm.elite&&await eliteTurn(hm,def,L))return;if(sd.result||!sd.hench.includes(hm))return;
   let t=L.slice().sort((a,b)=>cheb(a,hm)-cheb(b,hm))[0];
   if(cheb(t,hm)>def.rng){const opts=reach(hm,def.mv||3,hm);let best=null,bd=cheb(t,hm);
     for(const k in opts){const[x,y]=k.split(',').map(Number);const d=cheb(t,{x,y});if(d<bd||(d===bd&&best&&Math.random()<.3)){bd=d;best=[x,y]}}
     if(best){hm.x=best[0];hm.y=best[1];render();await sleep(300)}}
-  if(cheb(t,hm)<=def.rng&&!shotBlocked(hm,t)){await strikeAnim(def.style,ctrU(hm),ctrU(t),COL.grey,'m'+hm.id);
-    const h=heroOf(t),r=luckUp(t)?Math.min(d20(),d20()):d20(),eva=stat(h,'eva')+(t.buffEva||0)+(t.evaNext||0);if(t.evaNext){log('hero',`Wind Ward: +${t.evaNext} evasion for ${h.name}.`);t.evaNext=0};const ha=(setOn(h,'swarm')?-2:2)+(hm.elite?2:0),hit=r===20||(r!==1&&r+ha>=eva);
-    log('vill',`${def.name} attacks ${h.name}: ${r}${ha<0?'−'+(-ha):'+'+ha} vs ${eva}. ${hit?`Hit for ${henchDmg(hm)}.`:'Miss.'}`);
-    if(hit&&!await wardBlocks(t)){fxU(t,def.rng>1?'PEW!':'THUD!','vhit');damageHero(t,henchDmg(hm))}else if(!hit)fxU(t,'SWISH!','miss')}}
+  await henchShoot(hm,def,L)}
+// One normal henchman shot; also used by Crowd Control without moving.
+async function henchShoot(hm,def,L){
+  const t=L.filter(u=>cheb(u,hm)<=def.rng&&!shotBlocked(hm,u))
+    .sort((a,b)=>cheb(a,hm)-cheb(b,hm))[0];
+  if(!t)return false;
+  await strikeAnim(def.style,ctrU(hm),ctrU(t),COL.grey,'m'+hm.id);
+  const h=heroOf(t),r=luckUp(t)?Math.min(d20(),d20()):d20(),eva=stat(h,'eva')+(t.buffEva||0)+(t.evaNext||0)+avoidEva(t);
+  if(t.evaNext){log('hero',`Wind Ward: +${t.evaNext} evasion for ${h.name}.`);t.evaNext=0}
+  const ha=(setOn(h,'swarm')?-2:2)+(hm.elite?2:0),hit=r===20||(r!==1&&r+ha>=eva);
+  log('vill',`${def.name} attacks ${h.name}: ${r}${ha<0?'−'+(-ha):'+'+ha} vs ${eva}. ${hit?`Hit for ${henchDmg(hm)}.`:'Miss.'}`);
+  if(hit&&!await wardBlocks(t)){fxU(t,def.rng>1?'PEW!':'THUD!','vhit');damageHero(t,henchDmg(hm))}
+  else if(!hit){fxU(t,'SWISH!','miss');await avoidRedirect(t,hm,henchDmg(hm),def.name)}
+  return true}
+
 /* Version 91 (Tyler): the Foreman's girders block shots (any attack at range 2+ whose hex line crosses one) and topple onto an adjacent hero
    when they come down two villain turns later, for 2 + half the Architect's level. */
 function hexLine(a,b){const A=ax(a),B=ax(b),n=cheb(a,b),out=[];const ac={q:A.q+1e-6,r:A.r+1e-6},bc={q:B.q+1e-6,r:B.r+1e-6};
@@ -597,8 +706,21 @@ function hexLine(a,b){const A=ax(a),B=ax(b),n=cheb(a,b),out=[];const ac={q:A.q+1
 function shotBlocked(a,b){const sd=S.sd;if(cheb(a,b)<=1||!sd.walls.some(w=>w.girder))return false;return hexLine(a,b).some(p=>sd.walls.some(w=>w.girder&&w.k===p.x+','+p.y))}
 const shotVB=(u,v)=>vCells(v).every(c=>shotBlocked(u,c));
 async function eliteTurn(hm,def,L){const sd=S.sd,o=sd.vl.find(o=>o.key===hm.owner&&!o.v.down);if(!o)return;
+  // Payload's Bombardier alternates ranged shots with a telegraphed bomb
+  // lob. The toss replaces its normal attack, and uses the existing fuse,
+  // avoidance, blast, and friendly-fire rules instead of immediate damage.
+  if(def.bombardier&&sd.round%2===0){
+    const target=L.filter(u=>cheb(u,hm)<=4).sort((a,b)=>cheb(a,hm)-cheb(b,hm))[0];
+    if(target&&dropBomb(target.x,target.y,1,2+Math.floor(henchLv(hm)/3),1)){
+      await A.smoke(ctrU(target),3);
+      fxU(target,'FUSE!','vhit');
+      log('vill',`${def.name} lobs a short-fuse bomb at ${heroOf(target).name} from up to 4 hexes away.`);
+      render();
+      return true;
+    }
+  }
   if(def.priest&&sd.hench.filter(m=>!m.elite&&m.owner===hm.owner).length<2){const t=freeTiles((x,y)=>cheb({x,y},hm)===1)[0];
-    if(t){sd.hench.push({id:'p'+Date.now(),owner:hm.owner,x:t.x,y:t.y,hp:henchHp(2)});await A.smoke(HC(t.x,t.y),3);fxP(t.x,t.y,'RISE!','say');log('vill',`${def.name} chants, and a fallen ${VILLAINS[hm.owner].hench.name.toLowerCase()} rises again.`);render()}}
+    if(t){sd.hench.push({id:'p'+Date.now(),owner:hm.owner,x:t.x,y:t.y,hp:regularHenchHp(hm.owner)});await A.smoke(HC(t.x,t.y),3);fxP(t.x,t.y,'RISE!','say');log('vill',`${def.name} chants, and a fallen ${VILLAINS[hm.owner].hench.name.toLowerCase()} rises again.`);render()}}
   if(def.foreman){const near=L.slice().sort((a,b)=>dV(a,o.v)-dV(b,o.v))[0];const t=near&&freeTiles((x,y)=>cheb({x,y},near)===1&&dV({x,y},o.v)<dV(near,o.v))[0];
     if(t){sd.walls.push({k:t.x+','+t.y,ttl:2,girder:1,dmg:2+Math.floor(henchLv(hm)/2)});await A.smoke(HC(t.x,t.y),3);fxP(t.x,t.y,'CLANG!','say');log('vill',`${def.name} bolts a girder into place in front of ${heroOf(near).name}. It blocks shots, and it will topple in 2 turns.`);render()}}}
 function drawTactic(){const sd=S.sd,k=sd.vkey,v=sd.v;sd.tdk=sd.tdk||{};
@@ -659,7 +781,7 @@ async function heroAttack(u,target,bonus=0,fixedDice=0,style){const sd=S.sd,h=he
     if(pull&&!u.ko&&u.anchor&&!sd.result){fxU(u,'ANCHORED!','good');log('hero',`${h.name} is anchored and holds firm.`)}
     if(pull&&!u.ko&&!u.anchor&&!sd.result){let n=0;for(let i=0;i<pull;i++){const t=benchTile(u,v,(a,b)=>dV(a,v)-dV(b,v));if(!t||dV(t,v)>=dV(u,v))break;u.x=t.x;u.y=t.y;n++}if(n){fxU(u,'YANKED!','vhit');log('vill',`${h.name} is dragged ${n} hex${n>1?'es':''} toward ${VILLAINS[sd.vkey].short}.`);render();await sleep(260)}}
     if(wall&&!sd.result){const t=benchTile(u,v,(a,b)=>dV(a,v)-dV(b,v));if(t){sd.walls.push({k:t.x+','+t.y,ttl:2});await A.smoke(HC(t.x,t.y),2);log('vill','A scaffold wall slams down.');render()}}
-    for(let n=0;n<summon&&!sd.result;n++){const t=freeTiles((x,y)=>dV({x,y},v)===1)[0];if(!t)break;sd.hench.push({id:'r'+Date.now()+n,owner:sd.vkey,x:t.x,y:t.y,hp:henchHp(2)});fxP(t.x,t.y,'BACKUP!','say');log('vill',`A ${VILLAINS[sd.vkey].hench.name.toLowerCase()} joins the fight.`);render()}
+    for(let n=0;n<summon&&!sd.result;n++){const t=freeTiles((x,y)=>dV({x,y},v)===1)[0];if(!t)break;sd.hench.push({id:'r'+Date.now()+n,owner:sd.vkey,x:t.x,y:t.y,hp:regularHenchHp(sd.vkey)});fxP(t.x,t.y,'BACKUP!','say');log('vill',`A ${VILLAINS[sd.vkey].hench.name.toLowerCase()} joins the fight.`);render()}
     if(bombAt&&!sd.result&&!u.ko&&dropBomb(u.x,u.y,1,dmgScale(bombAt))){fxU(u,'TSSS!','vhit');log('vill',`${VILLAINS[sd.vkey].short} leaves a lit bomb at ${h.name}'s feet.`);render()}
     if(flee&&!sd.result){const was=JSON.stringify(vCells(v));await vMove(()=>vAway(u,2,{strict:true}));if(JSON.stringify(vCells(v))!==was){fxV('HA HA!','say');log('vill','The villain slips out of reach.')}else{fxV('CORNERED!','good');log('vill','The villain tries to slip away, but there is nowhere to go.')}}
     if(wounds&&!u.ko){if(reap){const n=reap*wounds;h.hp=Math.min(stat(h,'maxHp'),h.hp+n);fxU(u,`+${n} HP`,'good');log('hero',`${h.name} reaps ${n} health.`)}
@@ -703,7 +825,7 @@ async function villainPhase(){const sd=S.sd;if(!sd||sd.result||sd.busy)return;sd
       if(t){fxU(t,'CRASH!','vhit');log('vill',`A girder topples onto ${heroOf(t).name} for ${w.dmg}.`);damageHero(t,w.dmg)}else log('vill','A girder topples over and hits nobody.');render()}checkLoss()}
   focusV(sd.vl.findIndex(o=>!o.v.down));vWarn();
   if(!sd.result){sd.round++;
-    {sd.units.forEach(u=>{u.stasis=false;u.moved=!!u.dazed;u.dazed=false;u.acted=false;u.freeEvac=false;u.buffDice=0;u.buffStr=0;u.buffAcc=0;u.buffBack=0;u.buffReap=0;u.buffEva=0;u.dr=0;u.anchor=false;if(u.capUsed&&!u.abRd)u.capUsed=false;u.abRd=false;u.innUsed=0;u.abUsed=[];u.jump=false;u.ripo=false;u.ripUsed=false;u.reflect=0;
+    {sd.units.forEach(u=>{u.stasis=false;u.moved=!!u.dazed;u.dazed=false;u.acted=false;u.freeEvac=false;u.buffDice=0;u.buffStr=0;u.buffAcc=0;u.buffBack=0;u.buffReap=0;u.buffEva=0;u.avoidDamage=false;u.dr=0;u.anchor=false;if(u.capUsed&&!u.abRd)u.capUsed=false;u.abRd=false;u.innUsed=0;u.abUsed=[];u.jump=false;u.ripo=false;u.ripUsed=false;u.reflect=0;
         if(u.relHit){u.relN=u.relHit===u.relKey?(u.relN||0)+1:1;u.relKey=u.relHit}else{u.relN=0;u.relKey=null}u.relHit=null;
         const h=heroOf(u);u.anchor=setOn(h,'lode');if(!u.ko){if(setOn(h,'cantor'))h.comp=Math.min(stat(h,'maxComp'),h.comp+1);if(setOn(h,'serpent'))h.hp=Math.min(stat(h,'maxHp'),h.hp+1)}u.lowP=(u.res.tech||0)<=1;u.res.tech=Math.min(pwrMax(h),(u.res.tech||0)+pwrRegen(h));u.res.magic=Math.min(arcMax(h),u.res.magic||0);if(S.facilities.includes('sanctum')&&!u.ko)h.comp=Math.min(stat(h,'maxComp'),h.comp+1)});
       roster().forEach(h=>{if(h.cd>0)h.cd--});
@@ -763,24 +885,27 @@ async function hazardTick(){const sd=S.sd;if(!sd.haz.length)return;
   for(const u of live().filter(u=>sd.haz.some(h=>h.k===u.x+','+u.y))){const hz=sd.haz.find(h=>h.k===u.x+','+u.y);
     await A.ring(ctrU(u),COL.innate,1.6);fxU(u,'SIZZLE!','vhit');damageHero(u,hz.dmg);log('vill',`${heroOf(u).name} is burned by the ${hz.n||'molten floor'} for ${hz.dmg}.`);render()}
   sd.haz.forEach(h=>{if(!h.perm)h.ttl--});sd.haz=sd.haz.filter(h=>h.ttl>0)}
-/* Payload's bombs: sd.bombs [{k,fuse,dmg,o}] tick down at the start of each villain turn and go off on their hex and the 6 around it.
-   They hit heroes, civilians and henchmen, never a villain. A Sapper beside a bomb packs it for +1. */
+/* Payload bombs: sd.bombs [{k,fuse,dmg,o,radius}] explode at the next
+   villain turn. Most cover seven hexes (radius 1); advanced cards can create
+   19-hex blasts (radius 2). Payload and all her own henchmen are immune. */
 const BOMB_MAX=4;
 const bombP=b=>{const[x,y]=b.k.split(',').map(Number);return {x,y}};
-function dropBomb(x,y,fuse,dmg){const sd=S.sd,k=x+','+y;sd.bombs=sd.bombs||[];const e=sd.bombs.find(b=>b.k===k);
-  if(e){e.fuse=Math.min(e.fuse,fuse);e.dmg=Math.max(e.dmg,dmg);return true}
-  if(sd.bombs.length>=BOMB_MAX)return false;sd.bombs.push({k,fuse,dmg,o:sd.vkey});return true}
+const bombRadius=b=>Math.max(1,Math.min(2,b.radius||1));
+function dropBomb(x,y,fuse,dmg,radius=1){const sd=S.sd,k=x+','+y;sd.bombs=sd.bombs||[];const e=sd.bombs.find(b=>b.k===k);
+  // Always one-round fuses, including legacy callers and loaded saves.
+  if(e){e.fuse=1;e.dmg=Math.max(e.dmg,dmg);e.radius=Math.max(bombRadius(e),radius);return true}
+  if(sd.bombs.length>=BOMB_MAX)return false;sd.bombs.push({k,fuse:1,dmg,o:sd.vkey,radius});return true}
 async function blowBombs(list,bonus=0){const sd=S.sd;
-  for(const b of list){if(sd.result)break;sd.bombs=sd.bombs.filter(o=>o!==b);const p=bombP(b),inZ=q=>cheb(q,p)<=1,sap=sd.hench.some(m=>m.owner===b.o&&cheb(m,p)<=1)?1:0,dm=b.dmg+bonus+sap;
-    render();await A.ring(HC(p.x,p.y),COL.yel,3.4,{count:2});fxP(p.x,p.y,pick(['KA-BOOM!','BLAM!','KRAKOOM!']),'vhit');
+  for(const b of list){if(sd.result)break;sd.bombs=sd.bombs.filter(o=>o!==b);const p=bombP(b),radius=bombRadius(b),inZ=q=>cheb(q,p)<=radius,sap=sd.hench.some(m=>m.owner===b.o&&!m.elite&&cheb(m,p)<=1)?1:0,dm=b.dmg+bonus+sap;
+    render();await A.ring(HC(p.x,p.y),COL.yel,2*radius+1.4,{count:2});fxP(p.x,p.y,pick(['KA-BOOM!','BLAM!','KRAKOOM!']),'vhit');
     if(sap)log('vill','A Sapper packed that bomb: +1 damage.');
-    const hd=dm,hs=live().filter(inZ),hm=sd.hench.filter(inZ);
+    const hd=dm,hs=live().filter(inZ),hm=sd.hench.filter(m=>m.owner!=='bomber'&&inZ(m));
     for(const u of hs){if(await wardBlocks(u))continue;fxU(u,'OOF!','vhit');damageHero(u,hd);log('vill',`A bomb goes off on ${heroOf(u).name} for ${hd}.`)}
     sd.civs.filter(inZ).forEach(c=>harmCiv(c,'a bomb'));termHit(inZ,'A bomb');
     hm.forEach(m=>{m.hp-=dm;m.hurtAt=Date.now()});const dead=hm.filter(m=>m.hp<=0);if(dead.length){sd.hench=sd.hench.filter(m=>m.hp>0);log('vill',`The blast takes out ${dead.length} of the villain's own henchm${dead.length>1?'en':'an'}.`)}
     if(!hs.length&&!hm.length)log('vill','A bomb goes off, but nobody is close enough to get hurt.');
     render();checkLoss();await sleep(FAST?0:220)}}
-async function bombTick(){const sd=S.sd;if(!sd.bombs||!sd.bombs.length)return;sd.bombs.forEach(b=>b.fuse--);render();const due=sd.bombs.filter(b=>b.fuse<=0);if(due.length)await blowBombs(due)}
+async function bombTick(){const sd=S.sd;if(!sd.bombs||!sd.bombs.length)return;sd.bombs.forEach(b=>b.fuse=0);render();const due=sd.bombs.filter(b=>b.fuse<=0);if(due.length)await blowBombs(due)}
 /* Gridlock's beams run along a hex line to the board edge. A beam stops at walls, rubble and villains, and at the first hero or civilian
    it hits; a hero hit is knocked back along the beam as many hexes as the damage. Hexes it crossed stay lit until his next turn:
    stepping into one costs BEAM_HOT and ends the move, and a hero can jump over a single lit hex for 2 movement. Prisms split a beam 60° both ways. */
@@ -889,7 +1014,7 @@ function sdView(){const sd=S.sd,def=VILLAINS[sd.vkey],v=sd.v;
     if(sd.mode==='abtele'||sd.mode==='abcover')for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(cheb({x,y},u)<=sr&&!blocked(x,y))reachM[x+','+y]=1}
   const W=BW(),H=BH(),P=(x,y)=>{const c=HC(x,y);return `left:${(c.cx-.5)*100/W}%;top:${(c.cy-HS)*100/H}%;width:${100/W}%;height:${2*HS*100/H}%`},D=(x,y)=>{const c=HC(x,y);return `data-cx="${c.cx}" data-cy="${c.cy}"`};
   const blindK=new Set(),frontK=new Set();sd.vl.forEach(o=>{if(o.v.down||o.v.hide)return;for(let y=0;y<N;y++)for(let x=0;x<N;x++){const p={x,y};if(inV(o.v,x,y)||dV(p,o.v)>3)continue;const sd2=sideOf(p,o.v);if(sd2==='rear')blindK.add(x+','+y);else if(sd2==='front')frontK.add(x+','+y)}});
-  const blastK=new Set(),blast2K=new Set();(sd.bombs||[]).forEach(b=>hexesWithin(bombP(b),1).forEach(p=>(b.fuse<=1?blastK:blast2K).add(p.x+','+p.y)));
+  const blastK=new Set(),blast2K=new Set();(sd.bombs||[]).forEach(b=>hexesWithin(bombP(b),bombRadius(b)).forEach(p=>(b.fuse<=1?blastK:blast2K).add(p.x+','+p.y)));
   const litM=litMap();let cells='';for(let y=0;y<N;y++)for(let x=0;x<N;x++){const k=x+','+y;const c=['cell'];if(litM[k])c.push('beam');if(blindK.has(k))c.push('blind');else if(frontK.has(k))c.push('front');if((sd.exits||[]).includes(k))c.push('exit');if(sd.obs.includes(k))c.push('obs');if(sd.walls&&sd.walls.some(w=>w.k===k))c.push('wall');if(sd.pits&&sd.pits.includes(k))c.push('pit');if(sd.haz&&sd.haz.some(h=>h.k===k))c.push('haz');if(blastK.has(k))c.push('blast');else if(blast2K.has(k))c.push('blast2');if(sd.vl.some(o=>o.v.charge&&o.v.charge.zone.includes(k)))c.push('tele');if(sd.firing&&sd.firing.includes(k))c.push('firing');if(k in reachM)c.push('reach');if(tg.has(k))c.push('tgt');if(al.has(k))c.push('ally');
     cells+=`<button class="${c.join(' ')}" data-cell="${k}" data-tip="cell:${x}:${y}" style="${P(x,y)}" aria-label="Hex ${x+1},${y+1}${(sd.exits||[]).includes(k)?', exit':''}${blindK.has(k)?', blind spot':frontK.has(k)?', front arc':''}${litM[k]?', lit beam':''}">${c.includes('wall')?wallArms(x,y):''}</button>`}
   if((sd.beams||[]).length)cells+=`<svg class="beams" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">${sd.beams.map(b=>{const[ax0,ay0]=b.k0.split(',').map(Number),[zx,zy]=b.ks[b.ks.length-1].split(',').map(Number),p=HC(ax0,ay0),z=HC(zx,zy),ln=(w,col,op)=>`<line x1="${p.cx}" y1="${p.cy}" x2="${z.cx}" y2="${z.cy}" stroke="${col}" stroke-width="${w}" opacity="${op}"/>`;return ln(.42,'#FF2D55',b.ttl>1?.22:.14)+ln(.2,'#FF2D55',b.ttl>1?.6:.4)+ln(.07,'#FFE3EA',.95)+`<line class="flow" x1="${p.cx}" y1="${p.cy}" x2="${z.cx}" y2="${z.cy}" stroke="#fff" stroke-width=".05" opacity=".9"/><circle cx="${p.cx}" cy="${p.cy}" r=".13" fill="#FF2D55" stroke="#fff" stroke-width=".04"/>`}).join('')}</svg>`;
@@ -929,23 +1054,24 @@ function sdView(){const sd=S.sd,def=VILLAINS[sd.vkey],v=sd.v;
       <div class="row">
         <button class="btn sm sub ${sd.mode==='move'?'on':''}" data-a="mode:move" data-tip="act:move" ${u.moved?'disabled':''}>${UI('move')}Move<small>${stat(h,'move')+(u.boost||0)} hex${stat(h,'move')+(u.boost||0)===1?'':'es'}</small></button>
         <button class="btn sm sub ${sd.mode==='attack'?'on':''}" data-a="mode:attack" data-tip="act:attack" ${canAct?'':'disabled'}>${UI('atk')}Attack<small>Range ${stat(h,'range')}</small></button>
-        <button class="btn sm abtn t-${POW_ENG[BASE(h).power].d} ${sd.mode===BASE(h).power?'on':''}" data-a="power" data-tip="pow:${BASE(h).power}" ${powOk(u,h)?'':'disabled'}>${p.name}<small>${powCost(BASE(h).power,true)}</small></button>
-        <button class="btn sm" data-a="escort" data-tip="act:escort" ${(canAct||u.freeEvac)&&adjCiv?'':'disabled'}>Escort</button>${sd.term?`<button class="btn sm" data-a="hack" data-tip="act:hack" ${canHack(u)?'':'disabled'}>${UI('intel')}Hack</button>`:''}${nFol?`<button class="btn sm" data-a="letgo" data-tip="act:letgo">Let go (${nFol})</button>`:''}
-      </div>`;
-    ctrlRest=`<div class="small muted">${p.txt}</div>
+        ${combatMenus(u,h)}
+      </div>
+      ${combatInfo(u,h)}
+      ${combatTargetHelp(u,h)?`<div class="cap combat-target-help">${esc(combatTargetHelp(u,h))}</div>`:''}`;
+    ctrlRest=`
       <div class="resrow"><span class="r" style="--tc:var(--cyan)" data-tip="kw:comp">${UI('comp')} ${[...Array(stat(h,'maxComp'))].map((_,i)=>`<i class="${i<h.comp?'f':''}"></i>`).join('')} <b class="mono">${h.comp}/${stat(h,'maxComp')}</b></span></div>
       ${pwrMax(h)||arcMax(h)||potOf(h)?`<div class="resrow">${pwrMax(h)?`<span class="r t-tech" data-tip="res:tech">PWR ${[...Array(pwrMax(h))].map((_,i)=>`<i class="${i<u.res.tech?'f':''}"></i>`).join('')} <b class="mono">${u.res.tech}/${pwrMax(h)} · +${pwrRegen(h)}/rd</b></span>`:''}${arcMax(h)?`<span class="r t-magic" data-tip="res:magic">ARC ${[...Array(arcMax(h))].map((_,i)=>`<i class="${i<u.res.magic?'f':''}"></i>`).join('')} <b class="mono">${u.res.magic}/${arcMax(h)}</b></span>`:''}${potOf(h)?`<span class="r t-innate" data-tip="res:innate">POT <b class="mono">${potOf(h)}</b> · ${Math.max(0,innUses(h)-(u.innUsed||0))?'Innate ready':'Innate used'}</span>`:''}</div>`:''}
-      ${(u.boost||u.buffDice||u.buffStr||u.ward||u.absorb||u.evaNext||u.buffAcc||u.buffBack||u.buffReap||u.dr||u.buffEva||u.anchor)?`<div class="row">${u.boost?`<span class="tag g" data-tip="kw:boost">+${u.boost} next move${u.boostJump?' (jump)':''}</span>`:''}${u.buffDice?`<span class="tag g" data-tip="kw:buff">+${u.buffDice} dice next attack</span>`:''}${u.buffStr?`<span class="tag g" data-tip="kw:buff">+${u.buffStr} Strength next attack</span>`:''}${u.ward?'<span class="tag g" data-tip="kw:warded">Warded</span>':''}${u.absorb?`<span class="tag g" data-tip="kw:absorb">Shield: absorbs ${u.absorb}</span>`:''}${u.buffAcc?`<span class="tag g" data-tip="kw:buff">+${u.buffAcc} accuracy next attack</span>`:''}${u.buffBack?`<span class="tag g" data-tip="kw:buff">+${u.buffBack} dice on a melee attack from a side or the rear</span>`:''}${u.buffReap?`<span class="tag g" data-tip="kw:buff">Reap ${u.buffReap} per page</span>`:''}${u.dr?`<span class="tag g" data-tip="kw:guard">Guard −${u.dr} per hit</span>`:''}${u.buffEva?`<span class="tag g" data-tip="kw:guard">+${u.buffEva} evasion</span>`:''}${u.evaNext?`<span class="tag g" data-tip="kw:windward">Wind Ward +${u.evaNext} evasion</span>`:''}${u.anchor?'<span class="tag g" data-tip="kw:anchor">Anchored</span>':''}</div>`:''}
+      ${(u.boost||u.buffDice||u.buffStr||u.ward||u.absorb||u.evaNext||u.buffAcc||u.buffBack||u.buffReap||u.dr||u.buffEva||u.avoidDamage||u.anchor)?`<div class="row">${u.boost?`<span class="tag g" data-tip="kw:boost">+${u.boost} next move${u.boostJump?' (jump)':''}</span>`:''}${u.buffDice?`<span class="tag g" data-tip="kw:buff">+${u.buffDice} dice next attack</span>`:''}${u.buffStr?`<span class="tag g" data-tip="kw:buff">${signedBonus(u.buffStr)} Strength next attack</span>`:''}${u.ward?'<span class="tag g" data-tip="kw:warded">Warded</span>':''}${u.absorb?`<span class="tag g" data-tip="kw:absorb">Shield: absorbs ${u.absorb}</span>`:''}${u.buffAcc?`<span class="tag g" data-tip="kw:buff">${signedBonus(u.buffAcc)} accuracy next attack</span>`:''}${u.buffBack?`<span class="tag g" data-tip="kw:buff">+${u.buffBack} dice on a melee attack from a side or the rear</span>`:''}${u.buffReap?`<span class="tag g" data-tip="kw:buff">Reap ${u.buffReap} per page</span>`:''}${u.dr?`<span class="tag g" data-tip="kw:guard">Guard −${u.dr} per hit</span>`:''}${u.buffEva?`<span class="tag g" data-tip="kw:guard">+${u.buffEva} evasion</span>`:''}${u.avoidDamage?`<span class="tag g" data-tip="kw:guard">Avoid Damage +${avoidEva(u)} evasion</span>`:''}${u.evaNext?`<span class="tag g" data-tip="kw:windward">Wind Ward +${u.evaNext} evasion</span>`:''}${u.anchor?'<span class="tag g" data-tip="kw:anchor">Anchored</span>':''}</div>`:''}
       ${auraTags(u)}${u.ripo||(gearHas(h,'relent')&&u.relN&&u.relKey===sd.vkey)?`<div class="row">${u.ripo?'<span class="tag g" data-tip="kw:riposte">Riposte ready</span>':''}${gearHas(h,'relent')&&u.relN&&u.relKey===sd.vkey?`<span class="tag g" data-tip="kw:relent">Relentless +${Math.min(1,u.relN)} vs ${VILLAINS[sd.vkey].short}</span>`:''}</div>`:''}
+      ${sd.mode==='rallySpirit'&&canAct?`<div class="cap">Rally Spirit: tap yourself or an ally within ${lvlOf(h)} hexes to restore 3 composure. Uses your action.</div>`:''}
       ${(sd.mode==='attack'||sd.mode==='arc')&&canAct&&!tg.size?`<div class="cap">Nothing in range. ${esc(h.name)} reaches ${stat(h,'range')} hex${stat(h,'range')===1?'':'es'}${stat(h,'range')===1?', so they must stand next to the target':''}, and walls, rubble and other units block shots. Move first, then attack.</div>`:''}
-      ${abButtons(u,h)}
       <div class="eyebrow">Character sheet</div>${heroCard(h,'fight')}`}
   else ctrl=`<div class="small muted">Tap a hero to select them. Each hero can move once and take one action per round. Long-press any hex to see what is on it, or any button, stat or keyword for details.</div>`;
   const last=(v.last?`<div class="cap"><b>${esc(v.last.n)}.</b> ${esc(v.last.txt)}</div>`:'')+
     (sd.v.foresee?`<div class="cap t-magic" style="border-color:var(--tc)"><b>Foreseen next card:</b> ${v.deck.length?`${esc(v.deck[0].n)}. ${esc(v.deck[0].txt)}`:'The playbook will be reshuffled first.'}</div>`:'')+
     sd.vl.filter(o=>!o.v.down&&o.v.warn&&o.v.deck[0]&&o.v.deck[0].uid===o.v.warn).map(o=>`<div class="cap warn" data-tip="kw:sigmove"><b>${VILLAINS[o.key].short} shouts: “${esc(o.v.deck[0].shout)}”</b> A Signature Move is next. Tear a page before the villain acts to rip it out.</div>`).join('')+
     sd.vl.filter(o=>o.v.charge&&!o.v.down).map(o=>`<div class="cap charge" data-tip="kw:charge"><b>${VILLAINS[o.key].short} is charging ${esc(o.v.charge.n)}.</b> Fires for ${o.v.charge.dmg} on the marked hexes next villain turn instead of a new page. Torn since: ${o.v.wounds.length-o.v.charge.w0} of ${o.v.charge.need||2} needed to stagger it.</div>`).join('')+
-    ((sd.bombs||[]).length?`<div class="cap charge" data-tip="kw:bomb"><b>${sd.bombs.length} lit bomb${sd.bombs.length>1?'s':''} on the board.</b> ${sd.bombs.some(b=>b.fuse<=1)?'Hexes striped red blow at the start of the next villain turn, so get 2 hexes clear of the bomb.':'The numbers count down each villain turn.'}</div>`:'')+
+    ((sd.bombs||[]).length?`<div class="cap charge" data-tip="kw:bomb"><b>${sd.bombs.length} lit bomb${sd.bombs.length>1?'s':''} on the board.</b> All bombs explode at the start of the next villain turn. Move outside every red-striped blast hex; advanced bombs may cover 19 hexes instead of 7.</div>`:'')+
     (v.marked?'<div class="small"><span class="disc t-innate" data-tip="kw:marked">Marked: +1 die on side and rear attacks this round</span></div>':'')+(v.cursed?'<div class="small"><span class="disc t-magic" data-tip="kw:cursed">Cursed: −2 damage this round</span></div>':'')+
     (sd.v.hex?'<div class="small"><span class="disc t-magic" data-tip="kw:hexed">Hexed: −${hexA(sd.v.hex)} evasion this round</span></div>':'')+(v.skip?'<div class="small"><span class="disc t-magic" data-tip="kw:frozen">Time Stop: loses its next turn</span></div>':'')+(v.blind?'<div class="small"><span class="disc t-tech" data-tip="kw:blinded">Blinded: −4 accuracy this round</span></div>':'')+(v.excise?'<div class="small"><span class="disc t-tech" data-tip="kw:excise">Find the Flaw: you pick the next page torn this round</span></div>':'')+(v.callout?`<div class="small"><span class="disc t-tech" data-tip="kw:callout">Called out: +${v.callout} dice on the next hero attack</span></div>`:'');
   return `<div class="sdl"><section class="panel sdp">
@@ -968,6 +1094,149 @@ function abOk(u,h,k){const g=GEAR[k],a=g&&g.ab,sd=S.sd;if(!a||u.ko)return false;
   if((f.tear||f.skip||f.hex||f.curse||f.face||f.foresee||f.mark||f.callout||f.blind||f.scry||f.bury||f.excise||f.scramble||f.vsplash)&&sd.v.down)return false;
   if(f.gain&&(u.res.magic||0)>=arcMax(h))return false;if(f.gainP&&(u.res.tech||0)>=pwrMax(h))return false;
   return true}
+
+
+/* Combat menus: selecting a choice is informational; only explicit confirmation
+   may activate a power, consume resources or start board targeting. */
+function combatMenu(kind){
+  const sd=S.sd,u=sd&&sd.units[sd.sel];
+  if(!u||sd.busy||sd.result||!['abilities','other'].includes(kind))return;
+  sd.combatMenuOpen=sd.combatMenuOpen===kind?null:kind;
+  /* Updating only the menu avoids replacing the clicked button while the
+     browser is still processing the pointer event. Later renders use state. */
+  document.querySelectorAll('#app .combat-dropdown').forEach(d=>{
+    const which=d.classList.contains('abilities-dropdown')?'abilities':'other',open=sd.combatMenuOpen===which;
+    d.querySelector('.combat-menu-toggle').setAttribute('aria-expanded',String(open));
+    d.querySelector('.combat-dropdown-menu').hidden=!open;
+  });
+}
+function combatPick(kind,key){
+  const sd=S.sd,u=sd&&sd.units[sd.sel];
+  if(!u||sd.busy||sd.result)return;
+  const h=heroOf(u),keys=[...new Set(Object.values(h.gear)),...new Set(pouchOf(h))];
+  if(kind==='ability'&&key!=='power'&&(!keys.includes(key)||!GEAR[key]||!GEAR[key].ab))return;
+  if(kind==='other'&&!['escort','hack','avoidDamage','rallySpirit','letgo'].includes(key))return;
+  if(kind!=='ability'&&kind!=='other')return;
+  sd.combatPick={hid:u.hid,kind,key};
+  sd.combatMenuOpen=null;
+  sd.mode=null;
+  render();
+}
+function combatClear(){
+  const sd=S.sd;if(!sd||sd.busy)return;sd.combatPick=null;sd.combatMenuOpen=null;render();
+}
+/* Icons show what using the action consumes, not what its resource cost is.
+   A future move-cost ability can mark itself with moveAct. */
+const combatCostIcon=kind=>kind==='action'?UI('atk'):kind==='move'?UI('move'):'⚡';
+function combatInfo(u,h){
+  const sd=S.sd,c=sd.combatPick;
+  if(!c||c.hid!==u.hid)return '';
+  let name='',description='',cost='',ok=false,tip='';
+  if(c.kind==='ability'){
+    if(c.key==='power'){
+      const pw=BASE(h).power,p=POWERS[pw];if(!p)return '';
+      name=p.name;description=p.txt;cost=powCost(pw);ok=powOk(u,h);
+      tip=['arc','patch','barricade'].includes(pw)?'Confirm, then choose a target on the board.':'Confirm to activate.';
+    }else{
+      const keys=[...new Set(Object.values(h.gear)),...new Set(pouchOf(h))];
+      if(!keys.includes(c.key)||!GEAR[c.key]||!GEAR[c.key].ab)return '';
+      const g=GEAR[c.key],a=g.ab;
+      name=a.n;cost=abCost(g);description='From '+g.name+'. '+abTxt(a,g.type==='innate'?potOf(h):null);
+      ok=abOk(u,h,c.key);
+      tip=a.mode?'Confirm, then select a target on the board.':'Confirm to activate.';
+    }
+  }else{
+    switch(c.key){
+      case 'escort':
+        name='Escort';description='Gather adjacent civilians to follow this hero to an exit. Uses an action unless you have a free Escort.';
+        ok=(!u.acted||u.freeEvac)&&sd.civs.some(v=>v.f!==u.hid&&!civHeld(v)&&cheb(v,u)<=1);
+        tip='Requires an adjacent civilian.';break;
+      case 'hack':
+        name='Hack';description='Download evidence from an adjacent terminal, gaining '+TERM_INTEL+' intel. Uses your action.';
+        ok=canHack(u);tip='Requires an intact terminal within 1 hex.';break;
+      case 'avoidDamage':
+        name='Avoid Damage';description='Spend an action for +3 Evasion until your next turn (+5 if adjacent to safe walls, rubble, heroes, civilians or terminals). On a miss, a suitable cover tile in the attack path can be hit instead.';
+        ok=!u.acted&&!u.ko&&!u.avoidDamage;
+        tip='Current cover provides +'+(avoidCover(u).length?5:3)+' Evasion.';break;
+      case 'rallySpirit':
+        name='Rally Spirit';description='Spend an action to restore up to 3 Composure to yourself or a conscious ally within '+lvlOf(h)+' hexes.';
+        ok=!u.acted&&!u.ko;tip='Confirm, then tap yourself or an ally.';break;
+      case 'letgo':
+        name='Let Go';description='Release the civilians currently following this hero. Does not use an action.';
+        ok=followers(u).length>0;tip=followers(u).length+' civilians currently following.';break;
+      default:return '';
+    }
+  }
+  return `<section class="combat-choice" aria-label="Selected combat action">
+    <div class="eyebrow">${c.kind==='ability'?'Ability details':'Action details'}</div>
+    <div class="row between"><strong>${esc(name)}</strong>${cost?`<span class="small mono">${esc(cost)}</span>`:''}</div>
+    <p class="small" style="margin:0">${esc(description)}</p>
+    <p class="small muted" style="margin:0">${esc(tip)}</p>
+    <div class="row">
+      <button class="btn pri combat-confirm" type="button" data-a="combatUse" ${ok?'':'disabled'}>${c.kind==='ability'?'Activate ability':'Use action'}</button>
+      <button class="btn sm" type="button" data-a="combatClear">Cancel</button>
+    </div>
+    ${ok?'':'<span class="small muted">Unavailable right now.</span>'}
+  </section>`;
+}
+function combatUse(){
+  const sd=S.sd,u=sd&&sd.units[sd.sel],c=sd&&sd.combatPick;
+  if(!u||!c||c.hid!==u.hid||sd.busy||sd.result)return;
+  const h=heroOf(u),key=c.key;
+  if(c.kind==='ability'){
+    if(key==='power'){
+      if(!powOk(u,h))return;
+      sd.combatPick=null;return usePower();
+    }
+    const keys=[...new Set(Object.values(h.gear)),...new Set(pouchOf(h))];
+    if(!keys.includes(key)||!GEAR[key]||!GEAR[key].ab||!abOk(u,h,key))return;
+    sd.combatPick=null;return useAb(key);
+  }
+  if(c.kind!=='other')return;
+  switch(key){
+    case 'escort':
+      if((!u.acted||u.freeEvac)&&sd.civs.some(v=>v.f!==u.hid&&!civHeld(v)&&cheb(v,u)<=1)){sd.combatPick=null;return escort()}break;
+    case 'hack':
+      if(canHack(u)){sd.combatPick=null;return hack()}break;
+    case 'avoidDamage':
+      if(!u.acted&&!u.ko&&!u.avoidDamage){sd.combatPick=null;return avoidDamage()}break;
+    case 'rallySpirit':
+      if(!u.acted&&!u.ko){sd.combatPick=null;return rallySpirit()}break;
+    case 'letgo':
+      if(followers(u).length){letGo(u,'lets the civilians go.');sd.combatPick=null;render()}break;
+  }
+}
+function combatMenus(u,h){
+  const sd=S.sd,pw=BASE(h).power,p=POWERS[pw],gear=[...new Set(Object.values(h.gear)),...new Set(pouchOf(h))].filter(k=>GEAR[k]&&GEAR[k].ab);
+  const choice=(kind,key,label,detail,costKind)=>`<button type="button" class="btn sm combat-option ${sd.combatPick&&sd.combatPick.hid===u.hid&&sd.combatPick.kind===kind&&sd.combatPick.key===key?'on':''}" data-a="combatPick:${kind}:${key}"><span class="combat-cost-icon" aria-label="${costKind==='action'?'Uses action':costKind==='move'?'Uses move':'Free action'}" title="${costKind==='action'?'Uses action':costKind==='move'?'Uses move':'Free action'}">${combatCostIcon(costKind)}</span><span class="combat-option-text">${esc(label)}${detail?`<small>${esc(detail)}</small>`:''}</span></button>`;
+  const abilities=`<div class="combat-dropdown abilities-dropdown"><button type="button" class="btn sm combat-menu-toggle" data-a="combatMenu:abilities" aria-expanded="${sd.combatMenuOpen==='abilities'}" aria-controls="combat-abilities-menu">Abilities ▾</button>
+    <div id="combat-abilities-menu" class="combat-dropdown-menu abilities-menu" ${sd.combatMenuOpen==='abilities'?'':'hidden'}>
+      ${choice('ability','power',p.name,'Primary · '+powCost(pw,true),p.free?'free':'action')}
+      ${gear.map(k=>{const g=GEAR[k],a=g.ab;return choice('ability',k,a.n,g.name+' · '+abCost(g,true),a.act?'action':a.moveAct?'move':'free')}).join('')}
+    </div></div>`;
+  const nFol=followers(u).length;
+  const others=`<div class="combat-dropdown other-actions"><button type="button" class="btn sm combat-menu-toggle" data-a="combatMenu:other" aria-expanded="${sd.combatMenuOpen==='other'}" aria-controls="combat-other-menu">Other Actions ▾</button>
+    <div id="combat-other-menu" class="combat-dropdown-menu other-actions-menu" ${sd.combatMenuOpen==='other'?'':'hidden'}>
+      ${choice('other','escort','Escort','Gather civilians',u.freeEvac?'free':'action')}
+      ${sd.term?choice('other','hack','Hack','Evidence terminal','action'):''}
+      ${choice('other','avoidDamage','Avoid Damage','+3 Evasion · +5 by cover','action')}
+      ${choice('other','rallySpirit','Rally Spirit','Range '+lvlOf(h)+' · +3 Composure','action')}
+      ${nFol?choice('other','letgo','Let Go','Following '+nFol,'free'):''}
+    </div></div>`;
+  return abilities+others;
+}
+function combatTargetHelp(u,h){
+  const sd=S.sd,m=sd.mode;
+  if(m==='rallySpirit')return 'Rally Spirit: tap yourself or an ally within '+lvlOf(h)+' hexes.';
+  if(m==='patch')return 'Patch Up: tap yourself or an ally within 3 hexes.';
+  if(m==='barricade')return 'Barricade: tap an empty tile within 2 hexes.';
+  if(m==='arc')return 'Arc Burst: tap an enemy within attack range.';
+  if(m&&m.startsWith('ab')&&sd.abKey&&GEAR[sd.abKey]&&GEAR[sd.abKey].ab){
+    const a=GEAR[sd.abKey].ab;
+    return a.n+': '+(a.mode==='ally'?'tap yourself or a nearby ally.':a.mode==='strike'?'tap a villain in range.':'tap an empty tile in range.');
+  }
+  return '';
+}
 function abButtons(u,h){const ks=[...new Set(Object.values(h.gear)),...new Set(pouchOf(h))].filter(g=>GEAR[g].ab);if(!ks.length)return '';const P=potOf(h);
   return `<div class="row">${ks.map(k=>{const g=GEAR[k],a=g.ab,ok=abOk(u,h,k),low=g.type==='innate'&&P<a.min,on=S.sd.abKey===k&&S.sd.mode&&S.sd.mode.startsWith('ab');
     return `<button class="btn sm abtn t-${g.type} ${on?'on':''}" data-a="ab:${k}" data-tip="gear:${k}" ${ok?'':'disabled'} title="${esc(low?`Requires Innate rank ${a.min}. ${abTxt(a)}`:abTxt(a,g.type==='innate'?P:null))}">${a.n}<small>${abCost(g,true)}</small></button>`}).join('')}</div>`}
@@ -976,16 +1245,16 @@ async function act(fn){const sd=S.sd;if(sd.busy)return;sd.busy=true;const keepSe
   try{await fn()}finally{if(S.sd===sd){sd.busy=false;if(!sd.result)sd.units.forEach(civFollow);checkLoss();if(sd.sel==null&&!sd.result)sd.sel=keepSel;if(sd.thenMode&&!sd.result){sd.mode=sd.thenMode}sd.thenMode=null;render()}}}
 function usePower(){const sd=S.sd,u=sd.units[sd.sel],h=heroOf(u),pw=BASE(h).power,P=POWERS[pw];if(!powOk(u,h)&&sd.mode!==pw)return;
   const glow=BASE(h).glow;
-  if(pw==='overclock')return act(async()=>{payPow(u,h);await A.ring(ctrU(u),glow,2.2,{inward:true,count:2});u.buffDice+=1;u.buffAcc=(u.buffAcc||0)+2;fxU(u,'OVERCLOCK!','good');log('hero',`${h.name} overclocks: +1 die and +2 accuracy on the next attack.`)});
+  if(pw==='overclock')return act(async()=>{payPow(u,h);await A.ring(ctrU(u),glow,2.2,{inward:true,count:2});u.buffDice+=1;u.buffAcc=(u.buffAcc||0)+1;u.buffStr-=1;fxU(u,'OVERCLOCK!','good');log('hero',`${h.name} overclocks: +1 die, +1 accuracy and −1 Strength on the next attack.`)});
   if(pw==='drone')return act(async()=>{payPow(u,h);const hm=sd.hench.filter(m=>cheb(m,u)<=3);await Promise.all(hm.map(m=>A.shot(ctrU(u),ctrU(m),glow)));
     hm.forEach(m=>{m.hp-=2;m.hurtAt=Date.now();fxP(m.x,m.y,m.hp<=0?'K.O.!':'ZAP!','hit')});sd.hench=sd.hench.filter(m=>m.hp>0);if(!hm.length)fxU(u,'NO TARGETS','miss');log('hero',`${h.name}'s drone zaps ${hm.length} henchm${hm.length===1?'an':'en'}.`)});
   if(pw==='emp'){if(dV(u,sd.v)>3){fxU(u,'TOO FAR','miss');render();return}
     return act(async()=>{payPow(u,h);await A.ring(ctrV(),glow,3,{count:2});sd.v.hex=true;fxV('EMP!','good');log('hero',`${h.name}'s EMP scrambles ${VILLAINS[sd.vkey].name}: −4 evasion this round.`)})}
   if(pw==='regen')return act(async()=>{payPow(u,h);await A.heal(ctrU(u),COL.heal);const n=Math.max(1,potOf(h));h.hp=Math.min(stat(h,'maxHp'),h.hp+n);fxU(u,`+${n} HP`,'good');log('hero',`${h.name} regenerates ${n} health.`)});
-  if(pw==='berserk')return act(async()=>{payPow(u,h);await A.ring(ctrU(u),glow,2.4,{inward:true,count:2});u.buffDice+=1;u.buffStr+=4;fxU(u,'RAAARGH!','good');log('hero',`${h.name} goes berserk: +1 die and +4 Strength on the next attack.`)});
+  if(pw==='berserk')return act(async()=>{payPow(u,h);await A.ring(ctrU(u),glow,2.4,{inward:true,count:2});u.buffDice+=1;u.buffStr+=3;u.buffAcc=(u.buffAcc||0)-1;fxU(u,'RAAARGH!','good');log('hero',`${h.name} goes berserk: +1 die, +3 Strength and −1 accuracy on the next attack.`)});
   if(pw==='leap')return act(async()=>{payPow(u,h);await A.smoke(ctrU(u),5);u.boost=(u.boost||0)+2;u.boostJump=true;fxU(u,'BOUND!','good');log('hero',`${h.name} gathers for a leap: +2 to the next move, and it is a jump.`);if(!u.moved)sd.thenMode="move"});
   if(pw==='aegis')return act(async()=>{payPow(u,h);const al=live().filter(o=>o!==u&&cheb(o,u)<=3).sort((a,b)=>(heroOf(a).hp/stat(heroOf(a),'maxHp'))-(heroOf(b).hp/stat(heroOf(b),'maxHp')))[0];
-    u.absorb=Math.max(u.absorb||0,3);await A.shield(ctrU(u),COL.magic,true);if(al){al.absorb=Math.max(al.absorb||0,3);await A.shield(ctrU(al),COL.magic,true);fxU(al,'AEGIS!','good')}fxU(u,'AEGIS!','good');log('hero',`${h.name} raises an aegis${al?` over themselves and ${heroOf(al).name}`:''}: the next 3 damage is absorbed.`)});
+    u.absorb=Math.max(u.absorb||0,2);await A.shield(ctrU(u),COL.magic,true);if(al){al.absorb=Math.max(al.absorb||0,2);await A.shield(ctrU(al),COL.magic,true);fxU(al,'AEGIS!','good')}fxU(u,'AEGIS!','good');log('hero',`${h.name} raises an aegis${al?` over themselves and ${heroOf(al).name}`:''}: the next 2 damage is absorbed.`)});
   if(pw==='drain'){if(dV(u,sd.v)>4){fxU(u,'TOO FAR','miss');render();return}
     return act(async()=>{u.acted=true;payPow(u,h);const w0=sd.woundsBy[h.id]||0;await heroAttack(u,'v',0,0,'bolt');const w=(sd.woundsBy[h.id]||0)-w0;
       if(w&&!u.ko){h.hp=Math.min(stat(h,'maxHp'),h.hp+w);await A.heal(ctrU(u),COL.magic);fxU(u,`+${w} HP`,'good');log('hero',`${h.name} drains ${w} health.`)}})}
@@ -1021,7 +1290,7 @@ async function abApply(u,h,g,tu){const sd=S.sd,a=g.ab,f=pairFx(h,g),P=potOf(h),v
   if(f.shove){const keep=sd.vi;for(let i=0;i<sd.vl.length;i++){if(sd.vl[i].v.down||dV(u,sd.vl[i].v)>1)continue;focusV(i);if(VILLAINS[sd.vkey].rooted){fxV('BOLTED DOWN!','miss');log('hero',`${VILLAINS[sd.vkey].short} is bolted to the floor and can't be shoved.`);continue}const vz=VSIZE[sd.v.shape]||1;if(vz>P){fxV('UNMOVED!','miss');log('hero',`${VILLAINS[sd.vkey].short} is size ${vz}, too big to shove at Innate rank ${P}.`);continue}await vMove(()=>vAway(u,1,{strict:true}));fxV('SHOVED!','hit');log('hero',`${h.name} shoves ${VILLAINS[sd.vkey].short} back.`)}focusV(keep)}
   if(f.dice||f.str||f.acc||f.back){const d=f.dice?v(f.dice):0,st=f.str?v(f.str):0,ac=f.acc?v(f.acc):0,bk=f.back?v(f.back):0;u.buffDice+=d;u.buffStr+=st;u.buffAcc=(u.buffAcc||0)+ac;u.buffBack=(u.buffBack||0)+bk;
     if(!f.move&&a.mode!=='tele'){await A.ring(ctrU(u),col,2.2,{inward:true,count:2});fxU(u,pick(['VRRRM!','RAAAH!','POWER UP!']),'good')}
-    log('hero',`${h.name}'s next attack: ${[d&&`+${d} ${d===1?'die':'dice'}`,ac&&`${ac<0?'−'+(-ac):'+'+ac} accuracy`,st&&`+${st} Strength`,bk&&`+${bk} more on a melee attack from a side or the rear`].filter(Boolean).join(', ')}.`)}
+    log('hero',`${h.name}'s next attack: ${[d&&`+${d} ${d===1?'die':'dice'}`,ac&&`${signedBonus(ac)} accuracy`,st&&`${signedBonus(st)} Strength`,bk&&`+${bk} more on a melee attack from a side or the rear`].filter(Boolean).join(', ')}.`)}
   if(f.reap)u.buffReap=(u.buffReap||0)+v(f.reap);
   if(f.rally){const n=v(f.rally);await A.ring(ctrU(u),COL.cyan,5,{count:2});live().filter(o=>cheb(o,u)<=2).forEach(o=>{const t=heroOf(o);t.comp=Math.min(stat(t,'maxComp'),t.comp+n);fxU(o,'STEADY!','good')})}
   if(f.gain){u.res.magic=Math.min(arcMax(h),(u.res.magic||0)+v(f.gain));await A.sparkle(ctrU(u),COL.magic);fxU(u,'+ARCANA','good')}if(f.gainP){u.res.tech=Math.min(pwrMax(h),(u.res.tech||0)+v(f.gainP));await A.sparkle(ctrU(u),COL.tech);fxU(u,'+POWER','good')}
@@ -1091,6 +1360,7 @@ function onCell(x,y){const sd=S.sd;if(sd.busy||sd.result)return;const k=x+','+y;
     if(sd.mode==='attack'||sd.mode==='arc'){const rng=stat(h,'range');let t=null;
       if(vAt>=0&&dV(u,sd.vl[vAt].v)<=rng&&!shotVB(u,sd.vl[vAt].v)){focusV(vAt);t='v';sd.aim={x,y}}else{const m=sd.hench.find(m=>m.x===x&&m.y===y&&cheb(m,u)<=rng&&!shotBlocked(u,m));if(m)t=m}
       if(t){const arc=sd.mode==='arc';return act(async()=>{u.acted=true;if(arc)payPow(u,h);await heroAttack(u,t,arc?1:0);if(arc&&!sd.result)await splash(t)})}}
+    if(sd.mode==='rallySpirit'&&unitIdx>=0&&!u.acted&&!u.ko&&cheb(u,sd.units[unitIdx])<=lvlOf(h)){const tu=sd.units[unitIdx],t=heroOf(tu);return act(async()=>{u.acted=true;if(tu!==u)await A.shot(ctrU(u),ctrU(tu),COL.heal);await A.heal(ctrU(tu),COL.heal);const gained=Math.min(3,Math.max(0,stat(t,'maxComp')-t.comp));t.comp+=gained;fxU(tu,gained?'+'+gained+' SPIRIT':'STEADY!','good');log('hero',`${h.name} rallies ${tu===u?'themselves':t.name}, restoring ${gained} composure.`)})}
     if(sd.mode==='patch'&&unitIdx>=0&&cheb(sd.units[unitIdx],u)<=3){const tu=sd.units[unitIdx],t=heroOf(tu);
       return act(async()=>{payPow(u,h);if(tu!==u)await A.shot(ctrU(u),ctrU(tu),COL.heal);await A.heal(ctrU(tu),COL.heal);
         t.hp=Math.min(stat(t,'maxHp'),t.hp+3);t.comp=Math.min(stat(t,'maxComp'),t.comp+2);fxU(tu,'+3 HP','good');log('hero',`${h.name} patches up ${t.name}.`)})}
@@ -1105,6 +1375,6 @@ function onCell(x,y){const sd=S.sd;if(sd.busy||sd.result)return;const k=x+','+y;
       if((!a.rng||dV(u,sd.vl[vAt].v)<=a.rng)&&!shotVB(u,sd.vl[vAt].v)){focusV(vAt);sd.aim={x,y};
         return act(async()=>{payAb(u,key);u.acted=true;log('hero',`${h.name} unleashes ${a.n} (${abCost(g)})!`);if(a.str)u.buffStr+=a.str;await heroAttack(u,'v',a.plus||0,a.dice||0,'beam');if(a.splash&&!sd.result)await splashV(a.splash)})}}}
   if(vAt>=0&&sd.vl.length>1&&unitIdx<0){focusV(vAt);render();return}
-  if(unitIdx>=0){sd.sel=unitIdx;const o=sd.units[unitIdx];sd.mode=o.moved?null:'move'}
-  else{sd.sel=null;sd.mode=null}
+  if(unitIdx>=0){if(sd.sel!==unitIdx){sd.combatPick=null;sd.combatMenuOpen=null}sd.sel=unitIdx;const o=sd.units[unitIdx];sd.mode=o.moved?null:'move'}
+  else{sd.sel=null;sd.mode=null;sd.combatPick=null;sd.combatMenuOpen=null}
   render()}
