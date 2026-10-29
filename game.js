@@ -927,7 +927,7 @@ function flip(){const b=document.querySelector('.board');if(!b){lastPos={};retur
       e.animate([{transform:`translate(${(p[0]-x)*c}px,${(p[1]-y)*c}px)`},{transform:`translate(${(p[0]-x)*c*.5}px,${(p[1]-y)*c*.5-c*.18}px)`,offset:.5},{transform:'none'}],{duration:Math.min(520,180+90*d),easing:'ease-in-out'})}});
   noFlip.clear();lastPos=now}
 function mast(){return `<header class="mast"><div><small>A campaign of capes and consequences</small><h1>Blackharbor</h1></div>
-  <div class="row"><span class="issue" data-tip="kw:volume">Vol. ${S.vol} · Arc ${arcOf(Math.min(S.issue,MAX_ISSUE))} · #${Math.min(S.issue,MAX_ISSUE)}</span></div>
+  <div class="row mast-tools"><span class="issue" data-tip="kw:volume">Vol. ${S.vol} · Arc ${arcOf(Math.min(S.issue,MAX_ISSUE))} · #${Math.min(S.issue,MAX_ISSUE)}</span><button type="button" class="btn sm mast-save-btn" data-save-open aria-haspopup="dialog" aria-label="Open save and load menu">▣ Save / Load</button></div>
   <div class="res" style="flex-basis:100%">
     <span class="chip trust" data-tip="kw:trust" aria-label="Trust" title="Trust">${UI('trust')}${S.trust}</span><span class="chip" data-tip="kw:techres" aria-label="Tech" title="Tech">${UI('tech')}${S.tech}</span><span class="chip" data-tip="kw:intel" aria-label="Intel" title="Intel">${UI('intel')}${S.intel}</span>
     ${Object.keys(S.salvage).filter(k=>S.salvage[k]>0||S.villains.some(v=>v.key===k)).map(k=>`<span class="chip" data-tip="kw:salvage" aria-label="${RES_NAME[k]}" title="${RES_NAME[k]} (${VILLAINS[k]?VILLAINS[k].short:''} salvage)">${resIc(k)}${S.salvage[k]}</span>`).join('')}
