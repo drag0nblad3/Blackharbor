@@ -13,6 +13,11 @@ const path=require('node:path');
    const page=await browser.newPage({viewport:{width:size.width,height:size.height},deviceScaleFactor:1});
    page.on('pageerror',e=>errors.push(size.name+': '+e.message));
    await page.goto('file://'+process.cwd()+'/index.html');
+   const painting=await page.evaluate(async ()=>{
+     const img=new Image();img.src='villain-portraits.avif';
+     await img.decode();return {width:img.naturalWidth,height:img.naturalHeight};
+   });
+   assert.deepEqual(painting,{width:704,height:444},'professionally illustrated sprite decodes in Chromium');
    assert.equal(await page.locator('link[href="pulp-details.css"]').count(),1,'pulp art layer is linked');
    await page.evaluate(()=>{
      newCampaign();recruitQuick('volt');recruitQuick('wisp');recruitQuick('bulwark');recruitQuick('lynx');
@@ -80,6 +85,7 @@ const path=require('node:path');
    assert(heavyArt.hqTexture.includes('repeating-linear-gradient'),'HQ blueprint line artwork rendered');
 
    await checkPage('hq','.bh-hq-layout .hqcols','.bh-hq-rail');
+   assert(await page.locator('.bh-hq-rail svg.vportrait').count()>0,'HQ shows villain mugshots');
    await page.locator('.nav [data-a="view:roster"]').click();
    await checkPage('roster','.bh-roster-content','.bh-roster-rail');
    await assertStablePalette('Roster',['body','.mast','.nav .btn','.bh-roster-rail','.bh-roster-content .card']);
@@ -88,6 +94,10 @@ const path=require('node:path');
    assert.equal(await page.locator('[data-cid="h-'+heroId+'"]').getAttribute('open'),'','Selecting a hero opens the actual full sheet');
    await page.locator('.nav [data-a="view:villains"]').click();
    await checkPage('villains','.bh-threat-content','.bh-threat-rail');
+   const portrait=page.locator('.villain-dossier-art svg.vportrait').first();
+   assert(await portrait.count()>0,'Villain dossier illustration exists');
+   const portraitRect=await portrait.boundingBox();
+   assert(portraitRect&&portraitRect.width>80&&portraitRect.height>70,'Villain illustration is visible');
    await assertStablePalette('Villains',['body','.mast','.nav .btn','.bh-threat-rail','.bh-threat-content .card']);
    await page.evaluate(()=>{
      S.inv={v:'cantor',clues:3};startShowdown();
@@ -95,6 +105,7 @@ const path=require('node:path');
      render();
    });
    await page.locator('.bh-combat-brief').waitFor();
+   assert(await page.locator('.vportrait-combat svg.vportrait').count()>0,'Combat includes villain portrait');
    await assertStablePalette('Combat',['body','.mast','.nav .btn','.bh-combat-brief','.bcol','.bact','.brest','.board','.cell']);
    await page.locator('.sdp .bcol .board').waitFor();
    await page.locator('.sdp .bact').waitFor();
@@ -115,11 +126,25 @@ const path=require('node:path');
    await page.screenshot({path:path.join(shots,size.name+'-combat.png'),animations:'disabled'});
    await page.evaluate(()=>{S.phase='hq';S.view='villains';startInv('cantor');render()});
    await page.locator('.inv-ui').waitFor();
+   assert(await page.locator('.inv-villain-visual svg.vportrait').count()>0,'Investigation target portrait is present');
    await assertStablePalette('Investigation',['body','.mast','.nav .btn','.inv-ui','.inv-header','.inv-main','.inv-intel-rail','.inv-action-stage']);
    const boardTexture=await page.evaluate(()=>getComputedStyle(document.querySelector('.inv-main')).backgroundImage);
    assert(boardTexture.includes('repeating-linear-gradient'),'Investigation corkboard texture rendered');
    await page.screenshot({path:path.join(shots,size.name+'-investigation.png'),animations:'disabled'});
 
+   await page.goto('file://'+process.cwd()+'/portrait-gallery.html');
+   await page.locator('#gallery .gallery-card').first().waitFor();
+   assert.equal(await page.locator('#gallery .gallery-card').count(),12,'Portrait gallery shows all canonical villains');
+   assert.equal(await page.locator('#gallery svg.vportrait').count(),12,'Every gallery entry has generated art');
+   const crops=await page.locator('#gallery svg.vportrait-crop').evaluateAll(nodes=>
+     nodes.map(n=>n.getAttribute('viewBox')));
+   assert.equal(crops.length,12,'All characters have isolated crop viewports');
+   assert.equal(new Set(crops).size,12,'No two villains show the same source crop');
+   assert(crops.every(v=>v.endsWith(' 169 140')),'Crop excludes source sheet dividers');
+
+   const galleryWidth=await page.evaluate(()=>document.documentElement.scrollWidth);
+   assert(galleryWidth<=size.width+24,'Gallery overflows viewport');
+   await page.screenshot({path:path.join(shots,size.name+'-portrait-gallery.png'),animations:'disabled',fullPage:true});
    await page.close();
   }
   assert.deepEqual(errors,[],'Browser script errors');

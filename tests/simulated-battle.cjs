@@ -20,13 +20,13 @@ const assert=require('node:assert/strict');
    render();
   });
   const balance=await page.evaluate(()=>({
-    runic:GEAR.runeblade.ab.fx.str,stun:GEAR.baton.ab.fx.str,trinity:GEAR.crown.ab.fx.str,
+    runic:GEAR.runeblade.ab.fx.str,stun:GEAR.baton.ab.fx.str,trinity:GEAR.crown.ab.fx,
     kinetic:GEAR.bracer.ab.fx,slug:GEAR.shotgun.ab.fx.str,
     overclock:POWERS.overclock.txt,berserk:POWERS.berserk.txt,
     kineticDescription:abTxt(GEAR.bracer.ab)
   }));
   assert.deepEqual({runic:balance.runic,stun:balance.stun,trinity:balance.trinity,kinetic:balance.kinetic,slug:balance.slug},
-    {runic:3,stun:3,trinity:5,kinetic:{dice:1,str:-1},slug:5},'Seven-ability balance numbers');
+    {runic:3,stun:3,trinity:{foresee:1,reactionPeek:1},kinetic:{dice:1,str:-1,reactionWard:1},slug:5},'Seven-ability balance numbers');
   assert.match(balance.overclock,/\+1 accuracy and −1 Strength/);
   assert.match(balance.berserk,/\+3 Strength and −1 accuracy/);
   assert.match(balance.kineticDescription,/−1 Strength/);
@@ -135,8 +135,8 @@ const assert=require('node:assert/strict');
   });
   assert.equal(gearBalance.stackedEvasion,16,'Tier-1 Evasion stacking reduced');
   assert.deepEqual(gearBalance.passives,{
-    suit:1,cloak:1,shroud:2,hood:1,moonslip:1,sunamulet:0,owlpend:0,charm:0,
-    nmask:1,shed:2,faraday:2,wings:2,robes:3,moonshade:2
+    suit:2,cloak:1,shroud:2,hood:1,moonslip:1,sunamulet:0,owlpend:0,charm:0,
+    nmask:2,shed:2,faraday:2,wings:3,robes:3,moonshade:2
   },'All fourteen passive Evasion changes');
   assert.equal(gearBalance.values.groundOut,1);
   assert.match(gearBalance.values.aegisText,/next 2 damage/);
@@ -144,8 +144,8 @@ const assert=require('node:assert/strict');
   assert.deepEqual(gearBalance.values.sunstone,{maxComp:2});
   assert.deepEqual(gearBalance.values.owl,{maxHp:2,maxComp:1});
   assert.deepEqual(gearBalance.values.circuit,{maxComp:2});
-  assert.deepEqual(gearBalance.values.compeyes,{acc:3,eva:1,maxComp:2});
-  assert.deepEqual(gearBalance.values.mutagen,{move:1,eva:1,maxHp:3});
+  assert.deepEqual(gearBalance.values.compeyes,{acc:4,eva:1,maxComp:2});
+  assert.deepEqual(gearBalance.values.mutagen,{move:1,eva:1,maxHp:2});
   assert.deepEqual(gearBalance.values.reqs,[3,3]);
   assert.equal(gearBalance.values.tierTwoHas,false);
   assert.equal(gearBalance.values.midHas,true);
