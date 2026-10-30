@@ -71,6 +71,10 @@ In the Claude project files only (`/mnt/project-files/blackharbor/`), not in thi
 - `sim/` economy bot, `abil-bot/`, `peak-stats/`, `salvage/`, `v121/`, `v124/` (the v124 runs used the bot without abilities).
 - `combat-sim/` single-fight lair sims from V69, with its own loader.
 
-## Going live
+## Tests and going live
 
-Changes reach the live game only through a pull request into `main`; see "Making a change" in the repo README. `main` is what GitHub Pages serves.
+This repo (Blackharbor-preview) is where every change is made and played first; https://drag0nblad3.github.io/Blackharbor-preview/ deploys from `main` with its own save key. Files are copied to the live repo (drag0nblad3/Blackharbor) only with Tyler's OK, through a release pull request.
+
+- `tests/*.cjs` are the regression suites, run from the repo root with `node tests/<name>.cjs`. The browser ones need Playwright.
+- `.github/workflows/preview-gate.yml` runs the fast rules/text suites, one seeded `sim.js` campaign and the browser suites on every push that touches the game. Check it is green before asking Tyler to play a change.
+- The balance studies (campaign-strategies, boss-slate, loot-impact, large-campaign-study, villain-matchup, villain-ablation, mobility-loot) keep their own workflows and reports; run them by hand when balance changes.
