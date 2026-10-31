@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
       # Publish only the game itself, not tools/ or repo files
-      - run: mkdir site && cp index.html equipment-gallery.html portrait-gallery.html *.css *.js *.avif *.svg site/ && cp -R assets site/
+      - run: mkdir site && cp index.html equipment-gallery.html portrait-gallery.html *.avif site/ && cp -R assets src css site/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
