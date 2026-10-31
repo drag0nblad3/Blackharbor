@@ -288,11 +288,11 @@ function reveal(o){if(FAST)return Promise.resolve();
     const page=(cls,style='')=>`<div class="pg ${cls||''}${o.sig?' sig':''}" style="${style}"><div class="hd"><span>${o.vk?vIc(o.vk):''}${esc(o.deck)}</span><span>${esc(o.tag||'')}</span></div>${o.rib?`<div class="sigrib ${o.ribCls||''}">${esc(o.rib)}</div>`:''}
       <div class="art ${o.art||''}">${o.vk?vWm(o.vk):''}<span>${esc(o.sfx)}</span></div><h2>${esc(o.title)}</h2><div class="tx">${esc(o.text)}</div>
       ${o.foot?`<div class="tx small"><b>${esc(o.foot)}</b></div>`:''}<div class="ft">${o.mode==='tear'?'Tap to tear it out':'Tap to resolve'}</div></div>`;
-    const tear=o.mode==='tear';
-    L.innerHTML=tear?`<div class="book tearbook">${page('top',`clip-path:${tearTop}`)}${page('bot',`clip-path:${tearBot}`)}
+    const tear=o.mode==='tear',art=o.vk&&typeof pbArt==='function'?pbArt(o.vk):'',artCls=art?' has-art':'';
+    L.innerHTML=tear?`<div class="book tearbook${artCls}" style="${art}">${page('top',`clip-path:${tearTop}`)}${page('bot',`clip-path:${tearBot}`)}
         <svg class="tearline" viewBox="0 0 100 100" preserveAspectRatio="none"><polyline points="${TEAR.map(([x,y])=>`${x},${y}`).join(' ')}" vector-effect="non-scaling-stroke"/></svg><span class="woundstamp">Wound!</span></div>
         <button class="btn pri cardgo" type="button">Tear it out</button>`
-      :`<div class="book">${page()}<div class="cover ${o.coverCls||''}"><small>${esc(o.coverTop)}</small><b>${esc(o.coverTitle)}</b><small>${esc(o.coverFoot||'')}</small></div></div>
+      :`<div class="book${artCls}" style="${art}">${page()}<div class="cover ${o.coverCls||''}"><small>${esc(o.coverTop)}</small><b>${esc(o.coverTitle)}</b><small>${esc(o.coverFoot||'')}</small></div></div>
         <button class="btn pri cardgo" type="button">Resolve</button>`;
     document.body.appendChild(L);const ready=Date.now()+(tear||RM?250:850);
     const btn=L.querySelector('.cardgo');setTimeout(()=>btn.focus({preventScroll:true}),RM?0:800);
@@ -1137,10 +1137,11 @@ function sdView(){const sd=S.sd,def=VILLAINS[sd.vkey],v=sd.v;
       <div class="row">
         <button class="btn sm sub ${sd.mode==='move'?'on':''}" data-a="mode:move" data-tip="act:move" ${u.moved?'disabled':''}>${UI('move')}Move<small>${stat(h,'move')+(u.boost||0)} hex${stat(h,'move')+(u.boost||0)===1?'':'es'}</small></button>
         <button class="btn sm sub ${sd.mode==='attack'?'on':''}" data-a="mode:attack" data-tip="act:attack" ${canAct?'':'disabled'}>${UI('atk')}Attack<small>Range ${stat(h,'range')}</small></button>
+        ${endRoundBtn()}
         ${combatMenus(u,h)}
       </div>
       ${combatInfo(u,h)}
-      ${combatTargetHelp(u,h)?`<div class="cap combat-target-help">${esc(combatTargetHelp(u,h))}</div>`:''}`;
+      ${combatTargetHelp(u,h)&&!(sd.combatPick&&sd.combatPick.armed&&sd.combatPick.hid===u.hid)?`<div class="cap combat-target-help">${esc(combatTargetHelp(u,h))}</div>`:''}`;
     ctrlRest=`
       <div class="resrow"><span class="r" style="--tc:var(--cyan)" data-tip="kw:comp">${UI('comp')} ${[...Array(stat(h,'maxComp'))].map((_,i)=>`<i class="${i<h.comp?'f':''}"></i>`).join('')} <b class="mono">${h.comp}/${stat(h,'maxComp')}</b></span></div>
       ${pwrMax(h)||arcMax(h)||potOf(h)?`<div class="resrow">${pwrMax(h)?`<span class="r t-tech" data-tip="res:tech">PWR ${[...Array(pwrMax(h))].map((_,i)=>`<i class="${i<u.res.tech?'f':''}"></i>`).join('')} <b class="mono">${u.res.tech}/${pwrMax(h)} · +${pwrRegen(h)}/rd</b></span>`:''}${arcMax(h)?`<span class="r t-magic" data-tip="res:magic">ARC ${[...Array(arcMax(h))].map((_,i)=>`<i class="${i<u.res.magic?'f':''}"></i>`).join('')} <b class="mono">${u.res.magic}/${arcMax(h)}</b></span>`:''}${potOf(h)?`<span class="r t-innate" data-tip="res:innate">POT <b class="mono">${potOf(h)}</b> · ${Math.max(0,innUses(h)-(u.innUsed||0))?'Innate ready':'Innate used'}</span>`:''}</div>`:''}
@@ -1163,9 +1164,10 @@ function sdView(){const sd=S.sd,def=VILLAINS[sd.vkey],v=sd.v;
     ${sd.vl.length>1?`<div class="row vswitch"><span class="eyebrow">Target</span>${sd.vl.map((o,i)=>`<button class="btn sm ${i===sd.vi?'on':''}" data-a="focus:${i}" ${o.v.down?'disabled':''} style="${vSty(o.key)}">${vIc(o.key)}${VILLAINS[o.key].short} · ${o.v.down?'down':`${remainingPages(o.v)} pages`}</button>`).join('')}</div>`:''}
     ${sd.patrol?'':`<div class="row between small"><span>${sd.vl.length>1?`<b>${VILLAINS[sd.vkey].short}</b> · `:''}<span class="kwd" data-tip="kw:playbook">Playbook</span> <b class="mono">${v.deck.length}</b> · <span class="kwd" data-tip="kw:discard">Discard</span> <b class="mono">${v.discard.length}</b> · Charging <b>${v.planned?1:0}</b> · <span class="kwd" data-tip="kw:wound">Torn</span> <b class="mono">${v.wounds.length}</b> of ${pipT}</span><button class="btn sm" data-a="book:${sd.vkey}">Read playbook</button></div>
     ${vbar}${last}`}</div>
-    <div class="bcol"><div class="boardwrap"><div class="board${lairCls()}${Date.now()-SHK<320?' shk':''}" style="aspect-ratio:${W}/${H};animation-delay:-${Math.min(320,Date.now()-SHK)}ms">${cells}${lairCls()?'<div class="amb"></div>':''}${vZones(W,H)}${toks}</div></div>
-    ${coll('legend','<span class="eyebrow">Board key</span>',`<div class="legend"><span data-tip="kw:civilian"><span class="vic" style="--vc:var(--yellow)">${IC('civ')}</span>Civilian</span><span data-tip="kw:exit"><i class="sw" style="background:color-mix(in srgb,var(--good) 32%,var(--panel));border:1.5px solid var(--good)"></i>Exit</span><span data-tip="kw:henchman"><span class="vic" style="${vSty(sd.vkey)};border-radius:25%">${mIc(sd.vkey)}</span>Henchman (HP)</span><span data-tip="kw:rubble"><span class="vic" style="--vc:var(--line)">${IC('rubble')}</span>Rubble</span><span data-tip="kw:walls"><i class="sw" style="background:#7A5A48"></i>Wall</span><span data-tip="kw:pit"><i class="sw" style="background:radial-gradient(#030407 40%,#3A404D)"></i>Pit</span><span data-tip="kw:haz"><i class="sw" style="background:#F08A4B"></i>Molten</span><span data-tip="kw:charge"><i class="sw" style="background:repeating-linear-gradient(45deg,#F3CB4B 0 3px,transparent 3px 6px)"></i>Charge zone</span><span data-tip="kw:terminal"><span class="vic" style="--vc:var(--cyan)">${UI('intel')}</span>Evidence terminal</span><span data-tip="kw:bomb"><span class="vic" style="--vc:#FFD27A">${IC('bomb')}</span>Bomb (fuse)</span><span data-tip="kw:braced"><i class="sw" style="background:var(--yellow);transform:rotate(45deg);width:9px;height:9px"></i>Braced</span><span data-tip="kw:facing"><i class="sw" style="width:0;height:0;border:0;border-top:6px solid transparent;border-bottom:6px solid transparent;border-left:10px solid var(--yellow)"></i>Facing</span><span data-tip="kw:blind"><i class="sw" style="background:color-mix(in srgb,var(--ink) 18%,var(--panel))"></i>Blind spot</span><span data-tip="kw:facearc"><i class="sw" style="background:color-mix(in srgb,var(--magenta) 22%,var(--panel))"></i>Front arc</span></div>`,false,'nested')}</div>
-    <div class="bact">${ctrl}${!sd.result&&!sd.busy?`<button class="btn pri" data-a="endround">End round</button>`:''}</div>
+    <div class="bcol">
+    ${coll('legend','<span class="eyebrow">Board key</span>',`<div class="legend"><span data-tip="kw:civilian"><span class="vic" style="--vc:var(--yellow)">${IC('civ')}</span>Civilian</span><span data-tip="kw:exit"><i class="sw" style="background:color-mix(in srgb,var(--good) 32%,var(--panel));border:1.5px solid var(--good)"></i>Exit</span><span data-tip="kw:henchman"><span class="vic" style="${vSty(sd.vkey)};border-radius:25%">${mIc(sd.vkey)}</span>Henchman (HP)</span><span data-tip="kw:rubble"><span class="vic" style="--vc:var(--line)">${IC('rubble')}</span>Rubble</span><span data-tip="kw:walls"><i class="sw" style="background:#7A5A48"></i>Wall</span><span data-tip="kw:pit"><i class="sw" style="background:radial-gradient(#030407 40%,#3A404D)"></i>Pit</span><span data-tip="kw:haz"><i class="sw" style="background:#F08A4B"></i>Molten</span><span data-tip="kw:charge"><i class="sw" style="background:repeating-linear-gradient(45deg,#F3CB4B 0 3px,transparent 3px 6px)"></i>Charge zone</span><span data-tip="kw:terminal"><span class="vic" style="--vc:var(--cyan)">${UI('intel')}</span>Evidence terminal</span><span data-tip="kw:bomb"><span class="vic" style="--vc:#FFD27A">${IC('bomb')}</span>Bomb (fuse)</span><span data-tip="kw:braced"><i class="sw" style="background:var(--yellow);transform:rotate(45deg);width:9px;height:9px"></i>Braced</span><span data-tip="kw:facing"><i class="sw" style="width:0;height:0;border:0;border-top:6px solid transparent;border-bottom:6px solid transparent;border-left:10px solid var(--yellow)"></i>Facing</span><span data-tip="kw:blind"><i class="sw" style="background:color-mix(in srgb,var(--ink) 18%,var(--panel))"></i>Blind spot</span><span data-tip="kw:facearc"><i class="sw" style="background:color-mix(in srgb,var(--magenta) 22%,var(--panel))"></i>Front arc</span></div>`,false,'nested')}
+    <div class="boardwrap"><div class="board${lairCls()}${Date.now()-SHK<320?' shk':''}" style="aspect-ratio:${W}/${H};animation-delay:-${Math.min(320,Date.now()-SHK)}ms">${cells}${lairCls()?'<div class="amb"></div>':''}${vZones(W,H)}${toks}</div></div></div>
+    <div class="bact">${ctrl}${!sd.result&&!sd.busy&&!(u&&h)?endRoundBtn():''}</div>
     <div class="brest">${ctrlRest}</div>
   </section>
   <section class="panel sdlog">${coll('sd-log','<div class="eyebrow">Combat log</div>',`<div class="log">${sd.log.slice().reverse().map(l=>`<p class="${l.k}">${esc(l.t)}</p>`).join('')}</div>`)}</section></div>`}
@@ -1194,6 +1196,12 @@ function combatMenu(kind){
     d.querySelector('.combat-dropdown-menu').hidden=!open;
   });
 }
+/* End round needs two taps within 4s: the first arms it, the second ends the round. */
+let endArmAt=0,endArmT=null;
+const endRoundArmed=()=>Date.now()-endArmAt<4000;
+function endRoundBtn(){const a=endRoundArmed();return `<button class="btn sm pri endrd ${a?'armed':''}" data-a="endround" aria-label="${a?'Tap again to end the round':'End round (tap twice)'}">${a?'Tap again':'End round'}</button>`}
+function endRoundTap(){if(endRoundArmed()){endArmAt=0;clearTimeout(endArmT);return villainPhase()}
+  endArmAt=Date.now();clearTimeout(endArmT);endArmT=setTimeout(()=>{endArmAt=0;if(S.sd&&!S.sd.busy)render()},4000);render()}
 function combatPick(kind,key){
   const sd=S.sd,u=sd&&sd.units[sd.sel];
   if(!u||sd.busy||sd.result)return;
@@ -1204,10 +1212,28 @@ function combatPick(kind,key){
   sd.combatPick={hid:u.hid,kind,key};
   sd.combatMenuOpen=null;
   sd.mode=null;
+  /* Board-targeted picks skip the confirm button: they arm targeting at once. */
+  const tm=combatTargetMode(u,h,sd.combatPick);
+  if(tm&&combatPickOk(u,h,sd.combatPick)){
+    sd.combatPick.armed=tm;
+    if(kind==='other')return rallySpirit();
+    if(key==='power')return usePower();
+    return useAb(key);
+  }
   render();
 }
+/* The board mode a pick arms, or null when it resolves without a board tap. */
+function combatTargetMode(u,h,c){
+  if(c.kind==='other')return c.key==='rallySpirit'?'rallySpirit':null;
+  if(c.key==='power'){const pw=BASE(h).power;return ['arc','patch','barricade'].includes(pw)?pw:null}
+  const a=GEAR[c.key]&&GEAR[c.key].ab;return a&&a.mode?'ab'+a.mode:null;
+}
+function combatPickOk(u,h,c){
+  if(c.kind==='other')return c.key==='rallySpirit'&&!u.acted&&!u.ko;
+  return c.key==='power'?powOk(u,h):abOk(u,h,c.key);
+}
 function combatClear(){
-  const sd=S.sd;if(!sd||sd.busy)return;sd.combatPick=null;sd.combatMenuOpen=null;render();
+  const sd=S.sd;if(!sd||sd.busy)return;if(sd.combatPick&&sd.combatPick.armed&&sd.mode===sd.combatPick.armed)sd.mode=null;sd.combatPick=null;sd.combatMenuOpen=null;render();
 }
 /* Icons show what using the action consumes, not what its resource cost is.
    A future move-cost ability can mark itself with moveAct. */
@@ -1215,19 +1241,21 @@ const combatCostIcon=kind=>kind==='action'?UI('atk'):kind==='move'?UI('move'):'�
 function combatInfo(u,h){
   const sd=S.sd,c=sd.combatPick;
   if(!c||c.hid!==u.hid)return '';
+  if(c.armed&&sd.mode!==c.armed)return '';
+  const targeted=!!combatTargetMode(u,h,c);
   let name='',description='',cost='',ok=false,tip='';
   if(c.kind==='ability'){
     if(c.key==='power'){
       const pw=BASE(h).power,p=POWERS[pw];if(!p)return '';
       name=p.name;description=p.txt;cost=powCost(pw);ok=powOk(u,h);
-      tip=['arc','patch','barricade'].includes(pw)?'Confirm, then choose a target on the board.':'Confirm to activate.';
+      tip=['arc','patch','barricade'].includes(pw)?'Targets the board.':'Confirm to activate.';
     }else{
       const keys=[...new Set(Object.values(h.gear)),...new Set(pouchOf(h))];
       if(!keys.includes(c.key)||!GEAR[c.key]||!GEAR[c.key].ab)return '';
       const g=GEAR[c.key],a=g.ab;
       name=a.n;cost=abCost(g);description='From '+g.name+'. '+abTxt(a,g.type==='innate'?potOf(h):null);
       ok=abOk(u,h,c.key);
-      tip=a.mode?'Confirm, then select a target on the board.':'Confirm to activate.';
+      tip=a.mode?'Targets the board.':'Confirm to activate.';
     }
   }else{
     switch(c.key){
@@ -1246,20 +1274,20 @@ function combatInfo(u,h){
         tip='Current cover provides +'+(avoidCover(u).length?5:3)+' Evasion.';break;
       case 'rallySpirit':
         name='Rally Spirit';description='Spend an action to restore up to 3 Composure to yourself or a conscious ally within '+lvlOf(h)+' hexes.';
-        ok=!u.acted&&!u.ko;tip='Confirm, then tap yourself or an ally.';break;
+        ok=!u.acted&&!u.ko;tip='Targets yourself or an ally on the board.';break;
       case 'letgo':
         name='Let Go';description='Release the civilians currently following this hero. Does not use an action.';
         ok=followers(u).length>0;tip=followers(u).length+' civilians currently following.';break;
       default:return '';
     }
   }
-  return `<section class="combat-choice" aria-label="Selected combat action">
+  return `<section class="combat-choice${c.armed?' armed':''}" aria-label="Selected combat action">
     <div class="eyebrow">${c.kind==='ability'?'Ability details':'Action details'}</div>
     <div class="row between"><strong>${esc(name)}</strong>${cost?`<span class="small mono">${esc(cost)}</span>`:''}</div>
     <p class="small" style="margin:0">${esc(description)}</p>
-    <p class="small muted" style="margin:0">${esc(tip)}</p>
-    <div class="row">
-      <button class="btn pri combat-confirm" type="button" data-a="combatUse" ${ok?'':'disabled'}>${c.kind==='ability'?'Activate ability':'Use action'}</button>
+    ${c.armed?'':`<p class="small muted combat-tip" style="margin:0">${esc(tip)}</p>`}
+    <div class="row combat-choice-actions">${c.armed?`<p class="combat-board-prompt" style="margin:0"><b>Click the board to activate.</b> ${esc(combatTargetHelp(u,h).replace(/^[^:]*: /,''))}</p>`:''}
+      ${targeted?'':`<button class="btn pri combat-confirm" type="button" data-a="combatUse" ${ok?'':'disabled'}>${c.kind==='ability'?'Activate ability':'Use action'}</button>`}
       <button class="btn sm" type="button" data-a="combatClear">Cancel</button>
     </div>
     ${ok?'':'<span class="small muted">Unavailable right now.</span>'}
