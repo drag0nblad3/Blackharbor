@@ -6,12 +6,12 @@ const fs=require('node:fs');
 (async()=>{
  const assets=['arena-concrete.svg','arena-steel.svg','arena-wood.svg','arena-circuit.svg','arena-move.svg','arena-danger.svg'];
  for(const file of assets){
-   const src=fs.readFileSync(file,'utf8');
+   const src=fs.readFileSync('assets/arena/'+file,'utf8');
    assert(src.startsWith('<svg '),file+' must be an actual illustration');
    assert(src.includes('viewBox='),file+' must scale with the screen');
  }
  const html=fs.readFileSync('index.html','utf8');
- assert(html.includes('href="battle-graphics.css"'),'live game references art stylesheet');
+ assert(html.includes('href="css/battle-art.css"'),'live game references art stylesheet');
  const browser=await chromium.launch({headless:true});
  try{
   for(const width of [390,1440]){
@@ -42,7 +42,7 @@ const fs=require('node:fs');
     assert(state.overflow<=24,'battle should fit '+width+'px viewport');
     assert.deepEqual(errors,[],'no browser script errors');
     for(const file of assets){
-      const decoded=await p.evaluate(async src=>{const i=new Image();i.src=src;await i.decode();return i.naturalWidth>0;},file);
+      const decoded=await p.evaluate(async src=>{const i=new Image();i.src=src;await i.decode();return i.naturalWidth>0;},'assets/arena/'+file);
       assert(decoded,file+' loads in browser');
     }
     await p.close();
