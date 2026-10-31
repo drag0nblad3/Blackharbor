@@ -309,7 +309,7 @@ const O_NAME=[['Night','Iron','Static','Crimson','Silver','Ghost','Storm','Ember
 const FIELD_AB={
   senses:{id:'senses',n:'Keen Senses',txt:'While in the party, every die rolled during investigations gets +2. Two heroes with it do not stack.'},
   intercept:{id:'intercept',n:'Signal Intercept',txt:'While in the party, every investigation opens with 1 unseen playbook page already revealed. Two heroes with it do not stack.'},
-  premonition:{id:'premonition',n:'Premonition',txt:"While in the party, at the start of each issue, reveal 2 unseen pages from free villains' playbooks and gain 1 intel. Two heroes with it do not stack."}};
+  premonition:{id:'premonition',n:'Premonition',txt:"While in the party, at the start of each issue, reveal 2 unseen pages from active villains' playbooks and gain 1 intel. Two heroes with it do not stack."}};
 const O_POW={tech:['arc','patch','barricade','overclock','drone','emp'],innate:['brace','mark','quake','regen','berserk','leap'],magic:['blur','omen','curse','aegis','drain','serene']};
 const O_POWFL={arc:'Lightning answers when you call it.',patch:'Your gadgets fix people as well as machines.',barricade:'Ten seconds and some scrap metal, and you have a wall.',
   brace:'You plant your feet and nothing gets past.',mark:'Once you have their scent, they cannot hide.',quake:'You hit the ground and the ground hits back.',
@@ -377,7 +377,7 @@ function oHqOpts(){const act=S.villains.filter(v=>v.status==='active').sort((a,b
   const o=[{id:'tech',n:'Their Old Lair',fl:'Crates of salvaged hardware.',txt:'+4 tech.'},
     {id:'files',n:'Their Case Files',fl:'Years of notes on this city\'s worst.',txt:'+3 intel.'},
     {id:'fans',n:'A Loyal Fanbase',fl:'The city already loves them.',txt:'+2 public trust.'}];
-  if(act.length)o.push({id:'trophy',n:'Trophy Room',fl:'Souvenirs from fights you never saw.',txt:`+2 salvage from each free villain (${act.map(v=>VILLAINS[v.key].salvage).join(', ')}).`});
+  if(act.length)o.push({id:'trophy',n:'Trophy Room',fl:'Souvenirs from fights you never saw.',txt:`+2 salvage from each active villain (${act.map(v=>VILLAINS[v.key].salvage).join(', ')}).`});
   if(ALL_ITEMS.some(it=>!isUnlocked(it)))o.push({id:'notes',n:'Lab Notebooks',fl:'Designs nobody else has seen.',txt:'Unlock 2 random missing blueprints.'});
   Object.keys(FAC).filter(k=>isUnlocked('fac:'+k)&&!S.facilities.includes(k)).sort((a,b)=>Object.values(FAC[b].cost).reduce((x,y)=>x+y,0)-Object.values(FAC[a].cost).reduce((x,y)=>x+y,0)).slice(0,2)
     .forEach(k=>o.push({id:'pat-'+k,n:`A Patron Builds the ${FAC[k].name}`,fl:'Their billionaire backer wants in.',txt:`Builds the ${FAC[k].name} for free: ${FAC[k].txt}`}));
@@ -429,7 +429,7 @@ function oFinish(){const c=S.cre;if(!c.name.trim())c.name=oRandName(oTrack(c));c
       if(id==='tech'){S.tech+=4;L.push('+4 tech')}
       else if(id==='files'){S.intel+=3;L.push('+3 intel')}
       else if(id==='fans'){S.trust+=2;L.push('+2 trust')}
-      else if(id==='trophy'){S.villains.filter(v=>v.status==='active').forEach(v=>S.salvage[v.key]+=2);L.push('+2 salvage from each free villain')}
+      else if(id==='trophy'){S.villains.filter(v=>v.status==='active').forEach(v=>S.salvage[v.key]+=2);L.push('+2 salvage from each active villain')}
       else if(id==='notes'){const a=unlockRandom(),b=unlockRandom();L.push(`new blueprints: ${[a,b].filter(Boolean).join(', ')}`)}
       else if(id.startsWith('pat-')){const k=id.slice(4);if(!S.facilities.includes(k))S.facilities.push(k);L.push(`a free ${FAC[k].name}`)}}
     if(S.cheat&&S.cheat.xover)S.cheat.xover=false;else{S.xover=S.xover||[];S.xover.push(xArc())}}
@@ -591,8 +591,8 @@ function bossSelectionScores(){
 function chooseVillainFromPool(){
   if(!S.pool.length)return null;
   // A shuffled pool provides random ordering for score ties, then we randomly
-  // select one of the three best-fit bosses instead of always taking the top.
-  const shortlist=bossSelectionScores().sort((a,b)=>b.score-a.score).slice(0,3);
+  // select one of the four best-fit bosses instead of always taking the top.
+  const shortlist=bossSelectionScores().sort((a,b)=>b.score-a.score).slice(0,4);
   const k=pick(shortlist).key;
   S.pool.splice(S.pool.indexOf(k),1);
   return k;
@@ -761,7 +761,7 @@ function eqPlan(h,g,pref){const G=GEAR[g],ks=SLOT_KEYS[G.slot]||[G.slot];
   if(G.slot==='arms'){const a=h.gear.arms,b=h.gear.arms2,tw=a&&GEAR[a].two;
     const s=G.two||G.hand==='main'?'arms':G.hand==='off'?'arms2':pref==='arms'||pref==='arms2'?pref:!a?'arms':a===g?'arms2':b===g?'arms':!b?'arms2':'arms2';
     const clear=G.two||tw?['arms','arms2']:[s];return {s,clear,out:clear.map(x=>h.gear[x]).filter(Boolean)}}
-  const clear=[ks.find(s=>!h.gear[s])||ks[0]];
+  const clear=[ks.includes(pref)?pref:ks.find(s=>!h.gear[s])||ks[0]];
   return {s:clear[0],clear,out:clear.map(s=>h.gear[s]).filter(Boolean)}}
 function putGear(h,g,pref){const p=eqPlan(h,g,pref);p.clear.forEach(s=>delete h.gear[s]);h.gear[p.s]=g;return p.out}
 const roster=()=>S.heroes.filter(h=>!h.retired);
@@ -1049,6 +1049,7 @@ let slotPick=null;
 const handFits=(s,G)=>G.slot!=='arms'||G.two||G.hand==='either'||G.hand===(s==='arms'?'main':'off');
 const slotFits=(h,s)=>{const base=s.replace(/2$/,'');return [...new Set(S.armory)].filter(g=>GEAR[g]&&!GEAR[g].cons&&GEAR[g].slot===base&&handFits(s,GEAR[g])).sort((a,b)=>wearOK(h,b)-wearOK(h,a)||GEAR[a].req-GEAR[b].req)};
 function slotPickView(){if(!slotPick)return '';const h=S.heroes.find(x=>x.id===slotPick.h);if(!h||!(S.phase==='hq'||prepGear())){slotPick=null;return ''}
+  if(!tutOn())return loadoutPicker(h,slotPick.s);
   const ks=slotFits(h,slotPick.s);
   return `<div id="slotpick" role="dialog" aria-modal="true" aria-label="Equip ${esc(h.name)}"><div class="gbox"><div class="eyebrow">${esc(h.name)} · ${SLOTS[slotPick.s]} slot</div><h3 style="margin:0">Equip from the armory</h3>
     ${ks.length?ks.map(g=>{const G=GEAR[g],ok=wearOK(h,g),pl=eqPlan(h,g,slotPick.s),n=S.armory.filter(x=>x===g).length;return `<button class="btn opt t-${G.type}" data-a="equip:${h.id}:${g}:${slotPick.s}" data-tip="gear:${g}" ${ok?'':'disabled'}><span>${esc(G.name)}${n>1?` ×${n}`:''}</span><small>${ok?[modsTxt(G.mods),G.ab?G.ab.n:'',pl.out.length?`swaps out ${[...new Set(pl.out)].map(o=>GEAR[o].name).join(' and ')}`:'',G.two?'two hands':''].filter(Boolean).join(' · '):`Needs ${reqTxt(G)}`}</small></button>`}).join('')
@@ -1056,7 +1057,7 @@ function slotPickView(){if(!slotPick)return '';const h=S.heroes.find(x=>x.id===s
     <div class="small muted">Long-press an item for full details.</div><button class="btn" data-a="slotpick:close">Cancel</button></div></div>`}
 document.addEventListener('click',e=>{if(slotPick&&e.target.id==='slotpick'){slotPick=null;render()}});
 document.addEventListener('keydown',e=>{if(slotPick&&e.key==='Escape'){slotPick=null;render()}});
-function render(){bossObserve();tutTick();guideTick();visitTick();const app=document.getElementById('app');app.className='wrap v-'+(S.phase==='hq'&&!tutOn()?'hq-'+(S.view||'hq'):S.phase);app.innerHTML=mast()+nav()+body()+slotPickView();if(!FAST){fixDisabled(app);flip();tutPaint()}save()}
+function render(){const loadoutFocus=loadoutCaptureFocus();bossObserve();tutTick();guideTick();visitTick();const app=document.getElementById('app');app.className='wrap v-'+(S.phase==='hq'&&!tutOn()?'hq-'+(S.view||'hq'):S.phase);app.innerHTML=mast()+nav()+body()+slotPickView();loadoutRestoreFocus(loadoutFocus);if(!FAST){fixDisabled(app);flip();tutPaint()}save()}
 function flip(){const b=document.querySelector('.board');if(!b){lastPos={};return}const c=(b.getBoundingClientRect().width-5)/BW(),now={};
   b.querySelectorAll('[data-tid]').forEach(e=>{const id=e.dataset.tid,x=+e.dataset.cx,y=+e.dataset.cy;now[id]=[x,y];const p=lastPos[id];
     if(p&&(p[0]!==x||p[1]!==y)&&!noFlip.has(id)&&!RM){const d=Math.hypot(p[0]-x,p[1]-y);
@@ -1204,7 +1205,7 @@ function hqView(only){if(tutOn())return tutHq(only);const arc=arcOf(S.issue),iia
   const rTop=!roster().length||(S.guide&&S.guide.s<=1);
   if(only==='villains')return `${guideBar()}${bhPagehead('Blackharbor intelligence','Threat board','Track their schemes, review their playbooks, and choose the next target.',[['Active threats',act.length],['Party',`${party().length}/4`],['Issue',iia]])}<div class="bh-threat-layout"><aside class="bh-threat-rail">${bhThreatOps(act,arc,iia)}</aside><section class="panel bh-threat-content">${coll('vl-cases',`<div><div class="eyebrow">Volume ${S.vol} · Arc ${arc} of ${ARCS} · Issue ${iia} of ${ISSUES_PER_ARC}</div><h2>Case files</h2></div>`,
     `<div class="steps" data-tip="kw:arc">${[...Array(ISSUES_PER_ARC)].map((_,i)=>`<span class="${i<iia-1?'f':''}"></span>`).join('')}</div>
-    <div class="cap tilt">${arc<ARCS?`When this arc ends, every free villain levels up and rewrites part of their playbook, and a new villain arrives.`:'Final arc. When it ends, two villains team up for the event comic finale.'} Villains you don't hunt keep scheming. Long-press any stat, item or keyword for details.</div>
+    <div class="cap tilt">${arc<ARCS?`When this arc ends, every active villain levels up and rewrites part of their playbook, and a new villain arrives.`:'Final arc. When it ends, two villains team up for the event comic finale.'} Villains you don't hunt keep scheming. Long-press any stat, item or keyword for details.</div>
     <div class="row small"><span class="eyebrow" data-tip="kw:party">Party</span>${party().map(h=>`<span class="tag g">${esc(h.name)}</span>`).join('')||'<span class="tag">Empty</span>'}<button class="btn sm" data-a="view:roster">Change party</button></div>
     <div class="grid2">${act.map(vcard).join('')}</div>
     ${!S.villains.length?'<p class="cap">Recruit four heroes to reveal the three opening villains. The threats will match your team’s disciplines.</p>':''}
@@ -1260,9 +1261,6 @@ function heroCard(h,where){const b=BASE(h),mx=stat(h,'maxHp'),mc=stat(h,'maxComp
   const ranks=Object.keys(TRACKS).map(t=>`<span class="disc t-${t} ${h.ranks[t]?'fill':''}" data-tip="kw:${t}">${TRACKS[t].name} ${h.ranks[t]}</span>`).join('');
   const res=poolTxt(h);if(h.pendingUp>0&&!h.trackPick&&Object.keys(TRACKS).every(t=>h.ranks[t]>=RANK_MAX))h.trackPick='none';
   const atHQ=S.phase==='hq',gearOK=atHQ||prepGear();
-  const slots=Object.keys(SLOTS).map(s=>{const g=h.gear[s],tw=s==='arms2'&&h.gear.arms&&GEAR[h.gear.arms].two;if(tw)return `<div class="slot has t-${GEAR[h.gear.arms].type}" data-tip="gear:${h.gear.arms}"><span class="sl">${SLOTS[s]}</span><span class="muted">${GEAR[h.gear.arms].name} (two hands)</span></div>`;return g?`<div class="slot has t-${GEAR[g].type}" data-tip="gear:${g}"><span class="sl">${SLOTS[s]}</span><span class="equipment-label">${equipmentIcon(g,44)}${GEAR[g].name}</span>${gearOK?`<button class="btn sm" data-a="unequip:${h.id}:${s}">Remove</button>`:''}</div>`
-    :gearOK?(()=>{const n=slotFits(h,s).filter(g=>wearOK(h,g)).length;return `<button type="button" class="slot pick" data-a="slotpick:${h.id}:${s}"><span class="sl">${SLOTS[s]}</span><span class="muted">Empty · ${n?`tap to equip (${n} fit${n===1?'s':''})`:'nothing fits yet'}</span></button>`})()
-    :`<div class="slot"><span class="sl">${SLOTS[s]}</span><span class="muted">Empty</span></div>`}).join('');
   const efr=gearOK&&S.armory.length?eqFilter(h):null,avail=efr?efr.ks:[];
   const lvlUp=h.pendingUp>0?(!h.trackPick?`<div class="cap"><b>Level up!</b> Which discipline does ${esc(h.name)} grow into?</div>
     <div class="grid2">${Object.entries(TRACKS).map(([t,d])=>{const n=h.ranks[t],mx=n>=RANK_MAX,nx=n+1,pk=nx===1&&t===b.track?'':perkTxt(t,nx),gn=gainTxt(h,t),br=bridgesOf({...h,ranks:{...h.ranks,[t]:h.ranks[t]+1}}).filter(k=>!bridgeOn(h,k)).map(k=>BRIDGE[k].n).join(' and ');return `<button class="btn opt t-${t}" data-a="track:${h.id}:${t}" data-tip="kw:${t}" style="border-color:var(--tc)" ${mx?'disabled':''}><span style="color:var(--tc)">${d.name} ${n} → ${mx?'mastered':nx}${nx===RANK_MAX?' · Capstone':''}</span><small>${mx?`Already at the rank ${RANK_MAX} cap.`:[pk&&`Capstone: ${pk}`,gn&&`Engine: ${gn}`,br&&`Unlocks the ${br} bridge perk`,`Opens ${d.name} ${nx} gear`].filter(Boolean).join('. ')+'.'}</small></button>`}).join('')}</div>`
@@ -1280,7 +1278,7 @@ function heroCard(h,where){const b=BASE(h),mx=stat(h,'maxHp'),mc=stat(h,'maxComp
   ${b.field?`<div class="small fieldab" data-tip="kw:field"><b>${b.field.n}</b> <span class="disc t-${b.track}">Field</span> ${b.field.txt}</div>`:''}
   <div class="row small"><span class="eyebrow" data-tip="kw:xp">XP</span><span class="meter">${[...Array(xpNeed(h))].map((_,i)=>`<i class="${i<h.xp?'f':''}"></i>`).join('')}</span><span class="mono">${h.xp}/${xpNeed(h)}</span></div>
   ${h.injuries.length?`<div class="row">${h.injuries.map(i=>`<span class="tag" data-tip="inj:${i}">${INJ[i].name}</span>`).join('')}</div>`:''}
-  <div class="eyebrow" data-tip="kw:slot">Gear</div><div class="slots">${slots}</div>${pairOf(h)?`<div class="small" data-tip="kw:paired"><b>Paired ${GEAR[pairOf(h)].name}s:</b> ${GEAR[pairOf(h)].pair.txt}. Both weapons' own stats count in full.</div>`:''}${setRows(h)}
+  ${where==='fight'?`<details class="loadout-fold" data-cid="fight-loadout" ${uiOpen('fight-loadout',false)?'open':''}><summary>Hero loadout <span class="mono">${Object.keys(SLOTS).filter(s=>loadoutWorn(h,s).key).length}/8 slots</span></summary>${heroLoadout(h,gearOK)}</details>`:heroLoadout(h,gearOK)}${pairOf(h)?`<div class="small" data-tip="kw:paired"><b>Paired ${GEAR[pairOf(h)].name}s:</b> ${GEAR[pairOf(h)].pair.txt}. Both weapons' own stats count in full.</div>`:''}${setRows(h)}
   <div class="row small"><span class="eyebrow" data-tip="kw:pouch">Pouch ${pouchOf(h).length}/${POUCH_MAX}</span>${pouchOf(h).map((g,i)=>`<span class="tag g" data-tip="gear:${g}">${GEAR[g].name}</span>${gearOK?`<button class="btn sm" data-a="unpouch:${h.id}:${i}">Remove</button>`:''}`).join('')||'<span class="muted">Empty. Consumables from the armory go here.</span>'}</div>
   ${efr?`<div class="eyebrow">Equip from the armory</div>${efr.bar}`:''}${avail.length?`<div class="row">${avail.map(g=>{const ok=wearOK(h,g),G=GEAR[g];return `<button class="btn sm" data-a="equip:${h.id}:${g}" data-tip="gear:${g}" ${ok?'':'disabled'} title="${ok?'':`Needs ${reqTxt(G)}`}">${equipmentIcon(g,28)} + ${G.name} <span class="muted">(${G.cons?`pouch ${pouchOf(h).length}/${POUCH_MAX}`:gearSlotN(G)}${ok?'':G.cons?', full':`, needs ${reqTxt(G)}`})</span></button>`}).join('')}</div>`:''}
   ${lvlUp}
@@ -1556,7 +1554,7 @@ const TIPS=[
   {id:'inv',when:()=>S.phase==='inv'&&S.inv&&S.inv.intro,t:'Investigation',b:()=>`Each issue, your party tracks one villain through 3 leads. <b>Every clue opens one unseen page</b> of the villain's playbook or one of their hit reactions, and the clue total decides how the fight starts: 0–1 an ambush, 2–3 a standoff, 4 or more prepared. The street hints tell you how this villain fights, so read them before you go.`},
   {id:'lead',when:()=>S.phase==='inv'&&S.inv&&!S.inv.intro&&S.inv.step<3&&!S.inv.res,t:'Working a lead',b:()=>`Pick how to work each lead. Options that roll use <b>a d20 plus bonuses</b> from field abilities and gear, and show the number you need. Risky options can hurt a hero or cost trust. The third lead is always the villain's own trail. Some offer battlefield preparation: entry cover, a clear approach, safer civilian positions, or fewer starting henchmen.`},
   {id:'lair',when:()=>S.phase==='inv'&&S.inv&&S.inv.step>=3,t:'Finding the lair',b:()=>`Your clues set the showdown. <b>Ambush:</b> the villain acts first with an extra henchman and your heroes start scattered. <b>Standoff:</b> you enter from the south edge and act first. <b>Prepared:</b> change gear now, act first, and the villain starts with 1 page torn out.`},
-  {id:'sd',when:()=>inSd(),t:'The showdown',b:()=>`Tap a hero to select them. Each round, every hero can <b>move once and take one action</b>. Then press End round and the villain resolves the page in its charging slot. <b>The playbook is also its health:</b> every wound tears out a page, and when none are left it's beaten. There is no time limit: when it runs out of pages to play, its untorn pages are shuffled back in. <b>Escort</b> civilians to a green exit hex for trust, because harmed civilians cost trust. Civilians left alone panic and run on the villain's turn, and henchmen drag them off.`},
+  {id:'sd',when:()=>inSd(),t:'The showdown',b:()=>`Tap a hero to select them. Each round, every hero can <b>move once and take one action</b>. Then press End round twice (the first tap arms it) and the villain resolves the page in its charging slot. <b>The playbook is also its health:</b> every wound tears out a page, and when none are left it's beaten. There is no time limit: when it runs out of pages to play, its untorn pages are shuffled back in. <b>Escort</b> civilians to a green exit hex for trust, because harmed civilians cost trust. Civilians left alone panic and run on the villain's turn, and henchmen drag them off.`},
   {id:'combatmenus',when:()=>inSd()&&S.sd.sel!=null,t:'Combat menus and action icons',b:()=>`<b>Abilities</b> contains primary and equipped powers. <b>Other Actions</b> contains Escort, Hack, Rally Spirit and Avoid Damage. The icon beside each option marks whether it uses an action, a move, or is free. <b>Choosing a menu item only previews its details below the controls</b>; tap Activate to commit or Cancel to back out.`},
   {id:'rallytip',when:()=>inSd()&&S.sd.sel!=null,t:'Rally Spirit',b:()=>`Choose <b>Other Actions → Rally Spirit → Activate</b>, then target yourself or an ally within your <b>total discipline levels</b> in hexes. Restore up to <b>3 Composure</b> without exceeding the maximum. This spends the hero's action.`},
   {id:'avoidt',when:()=>inSd()&&S.sd.sel!=null,t:'Avoid Damage',b:()=>`Choose <b>Other Actions → Avoid Damage → Activate</b> to spend an action for <b>+3 Evasion</b>, or <b>+5</b> beside cover such as walls, debris, another hero, a civilian or a terminal. On a miss, a valid cover target in the attack path may take the hit instead. Dangerous hazard tiles do not count as cover.`},
@@ -1579,7 +1577,7 @@ const TIPS=[
   {id:'shaken',when:()=>inSd()&&S.sd.units.some(u=>!u.ko&&heroOf(u).comp<=0&&!rankMod(heroOf(u),'innate','unshake')),t:'Shaken',b:()=>`A hero's composure (the blue bar) hit 0. They're <b>Shaken: −3 Strength, −3 accuracy, −3 evasion and −1 movement</b> until it's restored. Composure refills after every fight.`},
   {id:'ko',when:()=>inSd()&&S.sd.units.some(u=>u.ko),t:'Hero down',b:()=>`A knocked-out hero is out of this fight. After the mission they're back on their feet at half health, ready for the next issue. Nobody's career ends.`},
   {id:'after',when:()=>S.phase==='after'&&S.after&&!S.after.ethos,t:'Aftermath',b:()=>`Every hero on the mission earns XP, more if they landed 2 or more wounds. A win brings salvage for crafting. Villains you beat always <b>escape and come back a level stronger</b>, and beating one unlocks their facility blueprints. Every villain you didn't hunt moved its scheme forward.`},
-  {id:'arc',when:()=>S.phase==='arc',t:'A new arc',b:()=>`Every free villain gains a level, adds new pages and upgrades old ones, and a new villain arrives. Once per arc a <b>Crossover Issue</b> lets an experienced hero join from HQ.`},
+  {id:'arc',when:()=>S.phase==='arc',t:'A new arc',b:()=>`Every active villain gains a level, adds new pages and upgrades old ones, and a new villain arrives. Once per arc a <b>Crossover Issue</b> lets an experienced hero join from HQ.`},
   {id:'tabs',when:()=>atHQ()&&roster().length>0,t:'HQ, Roster and Villains',b:()=>`Between missions there are three tabs. <b>HQ</b> is for recruiting, building the base and crafting gear. <b>Roster</b> is for the party, equipment and level-ups. <b>Villains</b> holds the case files, where you pick who to investigate. A tab <b>glows</b> when it needs you: HQ while you have resources or options to use, Roster when there is new gear or a hero has a choice to make, and Villains once you have checked the other two this issue.`},
   {id:'levelup',when:()=>atHQ()&&roster().some(h=>h.pendingUp>0),t:'Level up',b:()=>`A hero has enough XP to level up. Open the <b>Roster</b> and find the ★: pick which discipline they grow into (up to rank 5), then choose one upgrade. Benched heroes also earn 1 XP every issue.`},
   {id:'pouch',when:()=>atHQ()&&S.armory.some(g=>GEAR[g]&&GEAR[g].cons),t:'Consumables',b:()=>`The armory has <b>consumables</b>: cheap one-use items like Stim Shots and Smoke Pellets. Each hero carries up to ${POUCH_MAX} in a pouch, separate from their gear slots. Use them in a fight as a free action, or during investigations for the ones that give clues. Buy more in the Workshop panel, even before the Workshop is built.`},
@@ -1705,7 +1703,7 @@ function pbPage(p,idx){const def=VILLAINS[PB.k],n=PB.pages.length-1;
 function pbArt(k){const a=typeof VILLAIN_COVERS!=='undefined'&&VILLAIN_COVERS[k],f=typeof VPR_FACE!=='undefined'&&VPR_FACE[k]||[160,160];
   return a?`;--pbart:url('${a.cover}');--pbpos:${(f[0]/3.2).toFixed(1)}% ${(f[1]/4.8).toFixed(1)}%`:''}
 function drawPB(d){const L=document.getElementById('comic');if(!L||!PB)return;const def=VILLAINS[PB.k],p=PB.pages[PB.i];
-  L.innerHTML=`<div class="cbar"><div><div class="eyebrow">Villain playbook</div><h3>${esc(def.name)}</h3></div><button class="btn sm" data-pb="gallery" type="button">Comic covers · 12</button><button class="btn sm" data-pb="close" type="button">Close</button></div>
+  L.innerHTML=`<div class="cbar"><div><div class="eyebrow">Villain playbook</div><h3>${esc(def.name)}</h3></div><button class="btn sm" data-pb="close" type="button">Close</button></div>
     <div class="cstage"><div class="book pbook vth ${p.kind==='cover'?'has-cover':''}${pbArt(PB.k)?' has-art':''}" style="${vSty(PB.k)}${pbArt(PB.k)}">${pbPage(p,PB.i)}</div></div>
     <div class="cnav"><button class="btn sm" data-pb="prev" type="button" ${PB.i?'':'disabled'}>Prev</button><span class="mono small">${PB.i?`${PB.i} / ${PB.pages.length-1}`:'Cover'}</span><button class="btn sm" data-pb="next" type="button" ${PB.i<PB.pages.length-1?'':'disabled'}>Next</button></div>
     <div class="cstrip">${PB.pages.map((q,i)=>`<button type="button" class="tile ${q.kind} ${q.kind==='card'&&q.c.sig?'sig':''} ${i===PB.i?'cur':''}" data-pb="go:${i}" aria-label="${q.kind==='cover'?'Cover':q.kind==='unk'?'Unknown page':q.kind==='torn'?'Torn page':q.kind==='rx'?esc(q.r.n):q.kind==='rxunk'?'Unknown hit reaction':esc(q.c.n)}"></button>`).join('')}</div>`;
@@ -1774,7 +1772,7 @@ const EVENT_TITLES=['Night of Two Masters','Total Breakout','The Long Eclipse','
 function finaleMole(){const ids=VILLAINS.mole.base,vs={...moleState(),level:VCAP,deck:[]},n=deckSize(vs);
   for(let i=0;i<n;i++)vs.deck.push({id:ids[i%ids.length],mk:Math.floor(i*4/n)});return vs}
 function setupEvent(){let k=chooseVillainFromPool(),fresh=!!k;
-  if(!k)k=S.villains.filter(v=>v.status==='active').sort((a,b)=>b.level-a.level)[0].key;   // pool empty: the strongest free villain
+  if(!k)k=S.villains.filter(v=>v.status==='active').sort((a,b)=>b.level-a.level)[0].key;   // pool empty: the strongest active villain
   if(fresh)S.villains.push(makeVillain(k,VCAP));else{const vs=vState(k);while(vs.level<VCAP)levelUpVillain(vs,true)}
   S.villains=S.villains.filter(v=>v.key!=='mole');S.villains.push(finaleMole());const keys=[k,'mole'];
   S.event={keys,title:pick(EVENT_TITLES),prep:null};S.finalePending=false;S.phase='event';S.view='mission'}
@@ -1871,14 +1869,14 @@ const TUT=[
     t:'Now hit it. Lynx rolls 2 dice. <b>Tap Attack</b>, then the ringed Digger.'},
   {id:'p-roll',only:[],done:()=>!S.sd.busy,t:'Each die is a <b>d20 plus accuracy</b>. Match or beat the target\'s evasion to hit. 14 + 4 = 18 beats evasion 7, but 2 + 4 = 6 falls short. One hit, one miss, and each hit does 1 damage to a henchman.'},
   {id:'p-end',dq:[9,1],only:['endround'],lit:()=>'#app [data-a="endround"]',done:()=>S.sd.busy||S.sd.round>=2,
-    t:'Lynx has moved and attacked. <b>End the round</b> and the bad guys take their turn.'},
+    t:'Lynx has moved and attacked. <b>End the round</b> and the bad guys take their turn. Tap End round, then tap it again to confirm.'},
   {id:'p-enemy',next:1,only:[],wait:()=>!S.sd.busy,t:'Henchmen roll too: a d20 + 2 against Lynx\'s evasion of 10. The first Digger rolled 9 and landed a hit for 1. The other rolled a <b>natural 1, which always misses</b>, whatever the bonus.'},
   {id:'p-lp',next:1,only:[],wait:()=>{const B=tutDig('tB');return !!B&&S.tut.lp===`${B.x},${B.y}`},ring:()=>{const B=tutDig('tB');return B?[B.x,B.y,'Hold']:null},
     t:'Round 2. Hold your finger on any hex (or hold the mouse button) to see what\'s on it and your odds. <b>Long-press the fresh Digger.</b>'},
   {id:'p-atk2',dq:[20,12],only:tutAtkOnly('lynx',()=>tutDig('tB')),ring:tutAtkRing('lynx',()=>tutDig('tB'),'Attack'),lit:tutAtkLit('lynx'),done:()=>tutU('lynx').acted,
     t:'Lynx is already in place, so no need to move. <b>Tap Lynx, then Attack, then the fresh Digger.</b>'},
   {id:'p-roll2',only:[],done:()=>!S.sd.busy,t:'A <b>natural 20 always hits</b>, whatever the evasion. Remember that against tough villains.'},
-  {id:'p-end2',dq:[5],only:['endround'],lit:()=>'#app [data-a="endround"]',done:()=>S.sd.busy||S.sd.round>=3,t:'One Digger left. <b>End the round.</b>'},
+  {id:'p-end2',dq:[5],only:['endround'],lit:()=>'#app [data-a="endround"]',done:()=>S.sd.busy||S.sd.round>=3,t:'One Digger left. <b>End the round</b> (tap it twice).'},
   {id:'p-atk3',dq:[16,8],only:tutAtkOnly('lynx',()=>tutDig('tA')),ring:tutAtkRing('lynx',()=>tutDig('tA'),'Attack'),lit:tutAtkLit('lynx'),done:()=>!!S.sd.result,
     t:'It missed. Finish the job: <b>Lynx, Attack, Digger.</b>'},
   {id:'p-won',only:['tut:hq'],lit:()=>'#app [data-a="tut:hq"]',done:()=>S.phase==='hq',t:'Subway safe! These Diggers work for a villain called Mole Boy, and they dropped his <b>salvage</b>, called Grit. <b>Head back to HQ.</b>'},
@@ -1915,13 +1913,13 @@ const TUT=[
   {id:'b-latk',dq:[12,9,1,10,4],only:tutAtkOnly('lynx',tutMole),ring:tutAtkRing('lynx',tutMole,'Attack'),lit:tutAtkLit('lynx'),done:()=>tutU('lynx').acted,
     t:'From the blind spot Lynx rolls 3 dice instead of 2. <b>Tap Attack, then Mole Boy.</b>'},
   {id:'b-lres',only:[],done:()=>!S.sd.busy,t:'<b>Soft Belly</b> only triggers from the blind spot, so that wound landed for free. A hit doesn\'t always wound, though: the Clean Hit rolled 4 + 2 = 6, short of his toughness of 8.'},
-  {id:'b-end',only:['endround'],lit:()=>'#app [data-a="endround"]',done:()=>S.sd.busy||S.sd.round>=2,t:'Both heroes have acted. <b>End the round.</b>'},
+  {id:'b-end',only:['endround'],lit:()=>'#app [data-a="endround"]',done:()=>S.sd.busy||S.sd.round>=2,t:'Both heroes have acted. <b>End the round</b> (tap it twice).'},
   {id:'b-vturn',next:1,only:[],wait:()=>!S.sd.busy,t:()=>S.sd.busy?'Mole Boy\'s turn. Watch what he does.':'Mole Boy did nothing: Volt tore out <b>Big Dig</b> while he was charging it, so he <b>lost his turn</b>. Every round a villain plays the page in his charging slot. Wound him as many times as his level in one round and you cancel it. He is already charging his next page.'},
   {id:'b-plan',next:1,only:[],lit:()=>'#app .cap',t:'Now he is charging <b>Tunnel Ambush</b>: he will burst up next to the hero farthest away. That is Volt. This round, let it through and see what a villain turn looks like.'},
   {id:'b-volt2',only:()=>[tutCell(tutU('volt'))],ring:()=>{const u=tutU('volt');return [u.x,u.y,'Tap Volt']},done:()=>S.sd.sel===tutIdx('volt'),t:'<b>Tap Volt.</b>'},
   {id:'b-avoid',only:['combatMenu:other','combatPick:other:avoidDamage','combatUse'],lit:()=>S.sd.combatPick&&S.sd.combatPick.key==='avoidDamage'?'#app [data-a="combatUse"]':S.sd.combatMenuOpen==='other'?'#app [data-a="combatPick:other:avoidDamage"]':'#app .other-actions .combat-menu-toggle',done:()=>{const u=tutU('volt');return !!u.avoidDamage&&!S.sd.busy},
-    t:'<b>Other Actions</b> holds moves any hero can make. <b>Avoid Damage</b> spends Volt\'s action for +3 Evasion until next round, or +5 next to cover like walls, rubble or an ally. <b>Open Other Actions, select Avoid Damage, then tap Activate.</b> Selecting an entry only shows its details; Cancel backs out for free.'},
-  {id:'b-end2',dq:[7],only:['endround'],lit:()=>'#app [data-a="endround"]',done:()=>S.sd.busy||S.sd.round>=3,t:'Lynx holds back this round. <b>End the round.</b>'},
+    t:'<b>Other Actions</b> holds moves any hero can make. <b>Avoid Damage</b> spends Volt\'s action for +3 Evasion until next round, or +5 next to cover like walls, rubble or an ally. <b>Open Other Actions, select Avoid Damage, then tap Use action.</b> Selecting an entry only shows its details; Cancel backs out for free. Abilities that target the board skip that button: pick one, then tap the board.'},
+  {id:'b-end2',dq:[7],only:['endround'],lit:()=>'#app [data-a="endround"]',done:()=>S.sd.busy||S.sd.round>=3,t:'Lynx holds back this round. <b>End the round</b> (tap it twice).'},
   {id:'b-vturn2',next:1,only:[],wait:()=>!S.sd.busy,t:()=>S.sd.busy?'Mole Boy\'s turn. Watch what he does.':'<b>Tunnel Ambush!</b> He rolled 7 + 2 = 9. That beats Volt\'s evasion of 8, but Avoid Damage raised it to 11, so he missed. Next to him in Other Actions is <b>Rally Spirit</b>: it spends your action to give an ally nearby up to 3 Composure back.'},
   {id:'b-free',next:1,nextL:'Play on',only:[],go:()=>{S.tut.dq=[];S.tips=[...new Set([...(S.tips||[]),...TUT_TIPS])]},
     t:'That\'s the end of the script. Mole Boy has 2 pages left. <b>Finish him off on your own</b>, with real dice. Long-press anything you\'re unsure about.'},
@@ -2035,6 +2033,7 @@ document.addEventListener('click',e=>{
     case 'equip':{const h=S.heroes.find(x=>x.id===p1);slotPick=null;if(!h||!(S.phase==='hq'||prepGear()))break;equipHero(h,p2,p3);break}
     case 'wsfreset':{S.ui=S.ui||{};S.ui.wsf={};break}
     case 'effreset':{S.ui=S.ui||{};if(S.ui.ef)delete S.ui.ef[p1];break}
+    case 'gearinspect':{if(slotPick&&slotFits(heroById(slotPick.h),slotPick.s).includes(p1))slotPick.g=p1;break}
     case 'slotpick':{slotPick=p1==='close'?null:{h:p1,s:p2};break}
     case 'guide':{const g=S.guide;if(!g)break;if(p1==='skip'){S.guide=null;break}if(p1==='go'){g.s=1;g.pop=null;break}if(p1==='close'){g.pop=null;break}
       if(p1==='next'){if(g.s===2){g.s=3;g.pop='gear'}else if(g.s===3){g.s=4;g.pop='roster'}break}
@@ -2066,7 +2065,7 @@ document.addEventListener('click',e=>{
     case 'escort':escort();return;
     case 'hack':hack();return;
     case 'letgo':{const u=S.sd&&S.sd.units[S.sd.sel];if(u)letGo(u,'lets the civilians go.');break}
-    case 'endround':villainPhase();return;
+    case 'endround':endRoundTap();return;
     case 'debrief':if(tutOn()){tutFinish();break}S.sd.finale?finaleDebrief():debrief();break;
     case 'tut':tutAct(p1);break;
     case 'sdgo':{const sd=S.sd;if(!sd||!sd.intro)break;sd.intro=false;if(sd.quality==='ambush'&&sd.round===0&&!sd.busy){render();setTimeout(villainPhase,500);return}break}
