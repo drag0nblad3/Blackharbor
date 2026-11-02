@@ -177,12 +177,18 @@ function bhMenuDiffHtml(){
   const d=diffOf();
   return '<b>'+d.n+'</b><span class="small muted">'+d.h+'</span>';
 }
-function bhMenuStoryTxt(){return S.storyOff?'Story is off: turn on':'Story is on: turn off'}
-function bhMenuToggleStory(b){S.storyOff=!S.storyOff;if(!S.story)S.story={q:[],seen:{}};b.textContent=bhMenuStoryTxt();b.setAttribute('aria-pressed',String(!S.storyOff));render()}
 function bhMenuSetDiff(v){
   if(!S)return;
   S.diff=diffClamp(v);
   const out=document.getElementById('bh-diff-out');if(out)out.innerHTML=bhMenuDiffHtml();
+  render();
+}
+function bhMenuStoryTxt(){return S.storyOff?'Story is off: turn on':'Story is on: turn off'}
+function bhMenuToggleStory(b){S.storyOff=!S.storyOff;if(!S.story)S.story={q:[],seen:{}};b.textContent=bhMenuStoryTxt();b.setAttribute('aria-pressed',String(!S.storyOff));render()}
+function bhMenuTipsTxt(){return S.tipsOff?'Tips are off: turn on':'Tips are on: turn off'}
+function bhMenuToggleTips(b){
+  S.tipsOff=!S.tipsOff;if(!S.tipsOff)S.tipAt=0;
+  b.textContent=bhMenuTipsTxt();b.setAttribute('aria-pressed',String(!S.tipsOff));
   render();
 }
 function bhMenuArm(key){
@@ -245,6 +251,10 @@ function bhSaveOpen(){
     '<div class="bh-diff-ticks small" aria-hidden="true">'+DIFFS.map(d=>'<span>'+d.n+'</span>').join('')+'</div>',
     '<div id="bh-diff-out" class="bh-diff-out" aria-live="polite">'+bhMenuDiffHtml()+'</div>',
     '<p class="small muted">Change it any time. It takes effect at once, even mid-fight.</p>',
+    '<hr class="bh-menu-rule">',
+    '<div class="eyebrow">Pop-up tips</div>',
+    '<button type="button" class="btn" data-bh-tips aria-pressed="'+!S.tipsOff+'">'+bhMenuTipsTxt()+'</button>',
+    '<p class="small muted">Explains each mechanic the first time it shows up.</p>',
     '<hr class="bh-menu-rule">',
     '<div class="eyebrow">Story</div>',
     '<button type="button" class="btn" data-bh-story aria-pressed="'+!S.storyOff+'">'+bhMenuStoryTxt()+'</button>',
@@ -350,12 +360,13 @@ function bhSaveRestore(){
   }catch(e){bhSaveUIStatus('Previous backup is invalid: '+e.message,true)}
 }
 document.addEventListener('click',e=>{
-  const b=e.target.closest('[data-save-open],[data-bh-arm],[data-bh-guide],[data-bh-story],[data-bh-close],[data-bh-tab],[data-bh-copy],[data-bh-select],[data-bh-check],[data-bh-import],[data-bh-restore]');
+  const b=e.target.closest('[data-save-open],[data-bh-arm],[data-bh-guide],[data-bh-tips],[data-bh-story],[data-bh-close],[data-bh-tab],[data-bh-copy],[data-bh-select],[data-bh-check],[data-bh-import],[data-bh-restore]');
   if(!b||b.disabled)return;
   if(b.hasAttribute('data-save-open')){bhSaveOpen();return}
   if(b.hasAttribute('data-bh-arm')){bhMenuAct(b.dataset.bhArm);return}
-  if(b.hasAttribute('data-bh-guide')){bhMenuClose();bhGuideOpen();return}
+  if(b.hasAttribute('data-bh-tips')){bhMenuToggleTips(b);return}
   if(b.hasAttribute('data-bh-story')){bhMenuToggleStory(b);return}
+  if(b.hasAttribute('data-bh-guide')){bhMenuClose();bhGuideOpen();return}
   if(b.hasAttribute('data-bh-close')){const d=document.getElementById('bh-save-dialog');if(d)d.close();return}
   if(b.hasAttribute('data-bh-tab')){bhSaveTab(b.dataset.bhTab);return}
   if(b.hasAttribute('data-bh-copy')){bhSaveCopy();return}
