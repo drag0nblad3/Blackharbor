@@ -24,4 +24,5 @@ jobs:
       - run: node tests/cantor-rework.cjs
       - run: node tests/balance.cjs
       - run: node tests/boss-selection.cjs
+      - run: node tests/story.cjs
       - run: node tools/sim.js --runs 1 --abil
