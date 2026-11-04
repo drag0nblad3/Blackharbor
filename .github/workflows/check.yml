@@ -17,6 +17,7 @@ jobs:
           node-version: 22
       # Loads every game file headless and plays one seeded campaign; fails on a script error
       - run: node tools/q.js villain
+      - run: node tests/isometric.cjs
       - run: node tests/gameplay-text.cjs
       - run: node tests/investigation-ui.cjs
       - run: node tests/comic-ui.cjs
