@@ -1,0 +1,42 @@
+/* Optional decoration only. Removing this file leaves construction and steady night lighting functional. */
+#app .hq-motion-layer{position:absolute;inset:0;width:100%;height:100%;z-index:151;pointer-events:none;overflow:hidden}
+#app .hq-motion-layer path,#app .hq-motion-layer ellipse{vector-effect:non-scaling-stroke}
+#app .hq-reactor-pulse{fill:none;stroke:#fff1a1;stroke-width:1.2;opacity:.8}
+#app .hq-energy-spark{fill:#fff9db;stroke:#ffc451;stroke-width:.7;filter:drop-shadow(0 0 1px #ffdc52)}
+#app .hq-motion-on .hq-reactor-orbit{animation:hq-energy-orbit 3.6s linear infinite;transform-origin:0 0}
+#app .hq-motion-on .hq-reactor-pulse{animation:hq-energy-pulse 2.8s ease-in-out infinite}
+#app .hq-rune-spin{fill:none;stroke:#fff1b4;stroke-width:1.2;stroke-dasharray:10 9;opacity:.9;transform-origin:0 0}
+#app .hq-motion-on .hq-rune-spin{animation:hq-rune-turn 12s linear infinite}
+#app .hq-training-arc{fill:none;stroke:#d4ffff;stroke-width:1.3;stroke-dasharray:18 25;opacity:.85}
+#app .hq-motion-on .hq-training-arc{animation:hq-current-flow 2.5s linear infinite}
+#app .hq-status-beacon{fill:#fff6b9;stroke:#ff854c;stroke-width:.7}
+#app .hq-motion-on .hq-status-beacon{animation:hq-status-flash 2.4s ease-in-out infinite}
+#app .hq-hangar-lights{fill:none;stroke:#fff3ab;stroke-width:1.4}
+#app .hq-motion-on .hq-hangar-lights path{animation:hq-status-flash 2.4s ease-in-out infinite}
+#app .hq-hangar-lights path:nth-child(2){animation-delay:-.6s!important}
+#app .hq-hangar-lights path:nth-child(3){animation-delay:-1.2s!important}
+#app .hq-hangar-lights path:nth-child(4){animation-delay:-1.8s!important}
+#app .hq-workshop-scan{fill:none;stroke:#c1ffff;stroke-width:1.5;opacity:.85}
+#app .hq-motion-on .hq-workshop-scan{animation:hq-fabrication-scan 5s ease-in-out infinite}
+#app .hq-magnet-pulse{fill:none;stroke:#c8ffff;stroke-width:1.3}
+#app .hq-motion-on .hq-magnet-pulse{animation:hq-energy-pulse 3s ease-in-out -.8s infinite}
+#app .hq-water-ripples{fill:none;stroke:#c3f7ed;stroke-width:1.1;stroke-linecap:round}
+#app .hq-motion-on .hq-water-ripples path{animation:hq-water-flow 3.8s ease-in-out infinite}
+#app .hq-water-ripples path:nth-child(2){animation-delay:-1.2s!important}
+#app .hq-water-ripples path:nth-child(3){animation-delay:-2.5s!important}
+#app .hq-motion-on.is-night .hq-beam{transform-origin:265px 92px;animation:hq-beam-drift 9s ease-in-out infinite}
+#app .hq-flicker-track{fill:none;stroke:#2b2416;stroke-width:2.2;stroke-linecap:round;opacity:.45}
+#app .hq-flicker-light{fill:none;stroke-width:1.5;stroke-linecap:round;opacity:.85}
+#app .hq-motion-on .hq-flicker-light{animation:hq-building-flicker var(--flicker-time,11s) linear var(--flicker-phase,0s) infinite}
+/* Two short, uneven dips per long cycle; each building has its own phase and period. */
+@keyframes hq-building-flicker{0%,72%,79%,85%,100%{opacity:.85}74%,77%{opacity:.12}76%,81%{opacity:1}83%{opacity:.25}}
+#app .hq-motion-paused *,#app .hq-motion-offscreen *{animation-play-state:paused!important}
+@keyframes hq-energy-orbit{to{transform:rotate(360deg)}}
+@keyframes hq-rune-turn{to{transform:rotate(-360deg)}}
+@keyframes hq-energy-pulse{0%,100%{opacity:.25}50%{opacity:1}}
+@keyframes hq-current-flow{to{stroke-dashoffset:-86}}
+@keyframes hq-status-flash{0%,100%{opacity:.15}35%,55%{opacity:1}}
+@keyframes hq-fabrication-scan{0%,100%{transform:translateX(0);opacity:.3}50%{transform:translateX(290px);opacity:1}}
+@keyframes hq-water-flow{0%,100%{transform:translateX(-10px);opacity:.25}50%{transform:translateX(10px);opacity:.95}}
+@keyframes hq-beam-drift{0%,100%{transform:rotate(-.7deg)}50%{transform:rotate(.7deg)}}
+@media(prefers-reduced-motion:reduce){#app .hq-grounds-stage *{animation:none!important}#app .hq-motion-layer{display:none}}
