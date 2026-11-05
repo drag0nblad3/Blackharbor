@@ -14,10 +14,10 @@ const path=require('node:path');
    page.on('pageerror',e=>errors.push(size.name+': '+e.message));
    await page.goto('file://'+process.cwd()+'/index.html');
    const painting=await page.evaluate(async ()=>{
-     const img=new Image();img.src='villain-portraits.avif';
+     const img=new Image();img.src='assets/isometric/heroes-superhero.webp';
      await img.decode();return {width:img.naturalWidth,height:img.naturalHeight};
    });
-   assert.deepEqual(painting,{width:704,height:444},'professionally illustrated sprite decodes in Chromium');
+   assert.deepEqual(painting,{width:1261,height:1247},'professionally illustrated sprite decodes in Chromium');
    assert.equal(await page.locator('link[href="css/pulp-details.css"]').count(),1,'pulp art layer is linked');
    await page.evaluate(()=>{
      newCampaign();recruitQuick('volt');recruitQuick('wisp');recruitQuick('bulwark');recruitQuick('lynx');
@@ -75,20 +75,36 @@ const path=require('node:path');
      const head=document.querySelector('.bh-pagehead');
      const hq=document.querySelector('.bh-hq-rail');
      return {
-       loaded:[...document.styleSheets].some(x=>x.href&&x.href.endsWith('/pulp-details.css')),
+       loaded:[...document.styleSheets].some(x=>x.href&&new URL(x.href).pathname.endsWith('/heroic-ui.css')),
        headingShadow:getComputedStyle(head).boxShadow,
        hqTexture:getComputedStyle(hq).backgroundImage
      };
    });
-   assert(heavyArt.loaded,'heavy pulp stylesheet successfully loaded');
-   assert(/rgb\(215, (?:68, 68|71, 69)\)/.test(heavyArt.headingShadow), 'comic page header has offset red ink shadow');
-   assert(heavyArt.hqTexture.includes('repeating-linear-gradient'),'HQ blueprint line artwork rendered');
+   assert(heavyArt.loaded,'superhero surface stylesheet successfully loaded');
+   assert(heavyArt.headingShadow.includes('rgb(8, 19, 30)'), 'comic page header has a clean ink shadow');
+   assert(heavyArt.hqTexture.includes('heroic-paper.webp'),'HQ uses the generated paper surface');
+   const paper=await page.evaluate(async()=>{const img=new Image();img.src='assets/ui/heroic-paper.webp';await img.decode();return {width:img.naturalWidth,height:img.naturalHeight}});
+   assert.deepEqual(paper,{width:640,height:640},'UI paper texture decodes in the browser');
 
    await checkPage('hq','.bh-hq-layout .hqcols','.bh-hq-rail');
    assert(await page.locator('.bh-hq-rail svg.vportrait').count()>0,'HQ shows villain mugshots');
    await page.locator('.nav [data-a="view:roster"]').click();
    await checkPage('roster','.bh-roster-content','.bh-roster-rail');
    await assertStablePalette('Roster',['body','.mast','.nav .btn','.bh-roster-rail','.bh-roster-content .card']);
+   const portraits=await page.locator('.bh-pick-icon:has(>.sprite-portrait),.card summary .vic:has(>.sprite-portrait)').evaluateAll(holders=>holders.map(holder=>{
+     const outer=holder.getBoundingClientRect(),art=holder.querySelector('.sprite-portrait').getBoundingClientRect();
+     return {holder:outer.width,art:art.width};
+   }));
+   assert(portraits.length>=8,'roster selector and character sheets show new portraits');
+   assert(portraits.every(p=>p.art>=p.holder*.95),'portrait art fills its holder instead of shrinking inside a thick frame');
+   if(size.width<600)assert(portraits.every(p=>p.art>=28),'phone roster portraits remain readable');
+   assert.equal(await page.locator('use[href^="#i-v-"],use[href^="#i-m-"]').count(),0,'no old character icons are referenced');
+   assert.equal(await page.locator('symbol[id^="i-v-"],symbol[id^="i-m-"]').count(),0,'old character icons are not loaded');
+   const mastOverlap=await page.evaluate(()=>{
+     const a=document.querySelector('.mast h1').getBoundingClientRect(),b=document.querySelector('.mast .issue').getBoundingClientRect();
+     return a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
+   });
+   assert(!mastOverlap,'comic masthead and issue badge do not overlap');
    const heroId=await page.evaluate(()=>S.party[0]);
    await page.locator('.bh-roster-pick').first().click();
    assert.equal(await page.locator('[data-cid="h-'+heroId+'"]').getAttribute('open'),'','Selecting a hero opens the actual full sheet');
@@ -113,17 +129,47 @@ const path=require('node:path');
      const rect=s=>document.querySelector(s).getBoundingClientRect();
      const header=rect('.bh-combat-brief'),board=rect('.sdp .bcol'),controls=rect('.sdp .bact'),villain=rect('.sdp .bhd');
      return {header:header.y,board:board.y,controls:controls.y,villain:villain.y,
+       boardWidth:board.width,frameWidth:rect('.sdl').width,
+       mapWidth:rect('.board').width,
        width:document.documentElement.scrollWidth,viewport:innerWidth};
    });
    if(size.width<1024){
      assert(combat.header<combat.board, 'phone: live status must appear above board');
      assert(combat.board<combat.controls,'phone: actions follow board');
+     assert(combat.mapWidth>=size.width*.96,'phone: playable board uses at least 96% of viewport width');
      assert(combat.controls<combat.villain,'phone: in-depth villain status follows combat controls');
    }else{
      assert(combat.header<combat.board,'desktop: live status must appear above board');
+     assert(combat.boardWidth>=combat.frameWidth*.65,'desktop: battlefield keeps at least 65% of the battle frame');
    }
    assert(combat.width<=size.width+24,'combat horizontal overflow '+(combat.width-size.width)+'px');
    await page.screenshot({path:path.join(shots,size.name+'-combat.png'),animations:'disabled'});
+   if(size.name==='phone'){
+     const saved=await page.evaluate(()=>JSON.stringify(S));
+     for(const viewport of [{width:844,height:390},{width:740,height:360}]){
+       await page.setViewportSize(viewport);
+       const landscape=await page.evaluate(()=>{
+         const b=document.querySelector('.board').getBoundingClientRect(),a=document.querySelector('.bact').getBoundingClientRect();
+         return {boardWidth:b.width,boardRight:b.right,actionsLeft:a.left,actionsRight:a.right,overflow:document.documentElement.scrollWidth-innerWidth};
+       });
+       assert(landscape.boardWidth>viewport.width*.65,'landscape board takes the larger left column');
+       assert(landscape.boardRight<=landscape.actionsLeft,'landscape actions sit to the right of board');
+       assert(landscape.actionsRight<=viewport.width&&landscape.overflow<=2,'landscape fits phone width');
+     }
+     await page.locator('[data-a="battleArt"]').click();
+     await page.locator('.board.iso-board').waitFor();
+     const iso=await page.locator('.board.iso-board').boundingBox(),actions=await page.locator('.bact').boundingBox();
+     assert(iso.x+iso.width<=actions.x,'isometric landscape board also stays beside actions');
+     await page.locator('.board').scrollIntoViewIfNeeded();
+     await page.screenshot({path:path.join(shots,'phone-landscape-battle.png'),animations:'disabled'});
+     await page.setViewportSize({width:390,height:844});
+     const portraitBoard=await page.locator('.board').boundingBox(),portraitActions=await page.locator('.bact').boundingBox();
+     assert(portraitActions.y>=portraitBoard.y+portraitBoard.height,'rotating back places actions below board');
+     assert(portraitBoard.width>=390*.96,'portrait board returns to full phone width');
+     assert.equal(await page.evaluate(()=>JSON.stringify(S)),saved,'rotation preserves the active battle');
+     await page.locator('[data-a="battleArt"]').click();
+   }
+
    await page.evaluate(()=>{S.phase='hq';S.view='villains';startInv('cantor');render()});
    await page.locator('.inv-ui').waitFor();
    assert(await page.locator('.inv-villain-visual svg.vportrait').count()>0,'Investigation target portrait is present');
@@ -140,11 +186,37 @@ const path=require('node:path');
      nodes.map(n=>n.getAttribute('viewBox')));
    assert.equal(crops.length,12,'All characters have isolated crop viewports');
    assert.equal(new Set(crops).size,12,'No two villains show the same source crop');
-   assert(crops.every(v=>v.endsWith(' 169 140')),'Crop excludes source sheet dividers');
+   assert(crops.every(v=>v.split(' ').map(Number).every(Number.isFinite)),'Portrait crop bounds are numeric');
+   assert.equal(await page.locator('#hero-gallery .hero-portrait').count(),9,'All nine hero portraits use battle art');
+   const portraitSources=await page.locator('#gallery image, #hero-gallery image').evaluateAll(nodes=>[...new Set(nodes.map(n=>n.getAttribute('href')))]);
+   assert(portraitSources.every(src=>src.startsWith('assets/isometric/')),'Every portrait references battle artwork');
+   await page.evaluate(async sources=>{await Promise.all(sources.map(src=>{const i=new Image();i.src=src;return i.decode()}))},portraitSources);
 
    const galleryWidth=await page.evaluate(()=>document.documentElement.scrollWidth);
    assert(galleryWidth<=size.width+24,'Gallery overflows viewport');
    await page.screenshot({path:path.join(shots,size.name+'-portrait-gallery.png'),animations:'disabled',fullPage:true});
+   // Lab pages must load the same playbook dependencies as the main game.
+   for(const lab of ['ui-style-lab.html','isometric-lab.html']){
+     await page.goto('file://'+process.cwd()+'/'+lab);
+     if(lab==='ui-style-lab.html')await page.locator('#lab-villain').selectOption('battle');
+     if(size.width<600){
+       const map=await page.locator('.board').boundingBox();
+       assert(map.width>=size.width*.96,lab+': board uses at least 96% of phone width');
+       console.log(lab+': phone board '+map.width+'px / '+size.width+'px viewport');
+       assert.equal(await page.locator('.art-lab-bar').evaluate(el=>getComputedStyle(el).position),'static','phone preview toolbar scrolls away');
+     }
+     await page.locator('.bhd [data-a^="book:"]').click();
+     await page.locator('#comic .pg.pbcover').waitFor();
+     assert(await page.locator('#comic img').first().evaluate(async img=>{await img.decode();return img.naturalWidth>0}),'battle playbook cover loads in '+lab);
+     await page.locator('#comic [data-pb="next"]').click();
+     await page.locator('#comic .pg:not(.pbcover)').waitFor();
+     await page.locator('#comic [data-pb="close"]').click();
+     assert.equal(await page.locator('#comic').count(),0,'playbook closes without leaving an empty overlay');
+     const labWidth=await page.evaluate(()=>document.documentElement.scrollWidth);
+     assert(labWidth<=size.width+24,lab+' overflows viewport');
+     await page.locator('.board').scrollIntoViewIfNeeded();
+     await page.screenshot({path:path.join(shots,size.name+'-'+lab.replace('.html','')+'.png'),animations:'disabled'});
+   }
    await page.close();
   }
   assert.deepEqual(errors,[],'Browser script errors');

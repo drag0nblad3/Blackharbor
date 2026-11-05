@@ -21,6 +21,8 @@ jobs:
       - run: node tests/gameplay-text.cjs
       - run: node tests/investigation-ui.cjs
       - run: node tests/comic-ui.cjs
+      - run: node tests/headquarters.cjs
+      - run: node tests/simulator-spend.cjs
       - run: node tests/payload-bombs.cjs
       - run: node tests/cantor-rework.cjs
       - run: node tests/balance.cjs
