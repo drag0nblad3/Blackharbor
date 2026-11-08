@@ -41,7 +41,7 @@ function plan(id,ids=['lash','snipe','drones','ray','mono','galv']){run(`S.sd.v.
  const positions=get('S.sd.units.slice(0,2).map(u=>[u.x,u.y])');await run('abApply(S.sd.units[0],S.heroes[0],GEAR.shadowpaw,S.sd.units[1])');assert.deepEqual(get('S.sd.units.slice(0,2).map(u=>[u.x,u.y])'),positions.reverse());
  run('S.sd.v.blind=true');assert.equal(get("VILLAINS.gallows.acc+vLvB('acc',S.sd.v.level)-vStat('acc')"),3);
  // Targeted AoE hits its footprint, not around its caster.
- setup();run("S.sd.hench=[{id:'a',x:4,y:5,hp:3},{id:'b',x:5,y:5,hp:3},{id:'c',x:0,y:7,hp:3}]");await run("gearBlast({x:4,y:5},GEAR.fusebando.ab.fx.blast,'Cherry Bomb')");assert.deepEqual(get('S.sd.hench.map(m=>m.hp)'),[2,2,3]);
+ setup();run("S.sd.hench=[{id:'a',x:4,y:5,hp:3},{id:'b',x:5,y:5,hp:3},{id:'c',x:0,y:7,hp:3}]");await run("gearBlast({x:4,y:5},GEAR.fusebando.ab.fx.blast,'Cherry Bomb')");assert.deepEqual(get('S.sd.hench.map(m=>m.hp)'),[1,1,3]);
  // Inspect without consuming the next reaction.
  setup();run("S.sd.tdk.gallows=[{id:'counter',n:'Counterstrike',txt:'2 damage'}]");await run('peekReaction()');assert.equal(get('S.sd.tdk.gallows.length'),1);assert.equal(get('S.sd.tdk.gallows[0].id'),'counter');
  // Deck selection preserves exact size / upgrade budget and samples a larger pool.
@@ -53,6 +53,15 @@ function plan(id,ids=['lash','snipe','drones','ray','mono','galv']){run(`S.sd.v.
  // Every new option executes, and extra reactions cannot create extra Murmur bodies.
  for(const k of get('Object.keys(EXTRA_PAGES)')){setup(k,4);g.get('sdView()');for(const id of get(`Object.keys(EXTRA_PAGES.${k})`))await run(`execCard(buildCard('${k}',{id:'${id}',mk:1},4))`);g.get('sdView()');if(k==='swarm')assert(get('swBodies(S.sd.v).length')<=3);}
  g.get('Object.values(GEAR).filter(g=>g.ab).map(g=>abTxt(g.ab))');
+ // Reclaim (Innate) tears the newest discard, keeps the planned page, ignores Find the Flaw, and needs a discard.
+ setup();plan('field',['lash','snipe']);run("S.sd.v.discard=['drones','ray'].map(id=>buildCard(S.sd.vkey,{id,mk:0}));S.sd.v.excise=2");const rc=get('remainingPages(S.sd.v)');
+ await run('abApply(S.sd.units[3],S.heroes[3],GEAR.bloodhound,S.sd.units[3])');assert.deepEqual(get('S.sd.v.wounds.map(c=>c.id)'),['ray']);assert.deepEqual(get('S.sd.v.discard.map(c=>c.id)'),['drones']);
+ assert.deepEqual(get('S.sd.v.deck.map(c=>c.id)'),['lash','snipe']);assert.equal(get('S.sd.v.planned.id'),'field');assert.equal(get('remainingPages(S.sd.v)'),rc-1);assert.equal(get('S.sd.v.excise'),2);assert.equal(get('S.sd.v.forceTop'),null);
+ run("S.sd.v.discard=[];S.heroes[3].ranks.innate=3;S.heroes[3].gear.head='bloodhound';S.sd.units[3].innUsed=0");assert.equal(get("abOk(S.sd.units[3],S.heroes[3],'bloodhound')"),false);
+ run("S.sd.v.discard=[buildCard(S.sd.vkey,{id:'mono',mk:0})]");assert.equal(get("abOk(S.sd.units[3],S.heroes[3],'bloodhound')"),true);
+ // Reaction Scry (Tech) reorders the next hit reactions without losing any.
+ setup();plan('field');run("S.sd.tdk.gallows=['weak','armor','over','counter'].map(id=>({...TACT.find(t=>t.id===id)}));AUTO_CHOOSE=2");await run('abApply(S.sd.units[1],S.heroes[1],GEAR.cmdvisor,S.sd.units[1])');run('AUTO_CHOOSE=null');
+ assert.deepEqual(get('S.sd.tdk.gallows.map(c=>c.id)'),['over','weak','armor','counter']);
  // Old active-charge saves move the card from discard into the reserved slot once.
  setup('helios',2);plan('flare',['heat','sprites']);run('delete S.sd.planVersion;S.sd.v.last=S.sd.v.planned;S.sd.v.discard=[S.sd.v.planned];S.sd.v.planned=null;S.sd.v.charge={n:"Solar Flare",zone:[],dmg:5};S=JSON.parse(JSON.stringify(S));S.sd.v=S.sd.vl[0].v;migratePlans()');assert.equal(get('S.sd.v.planned.id'),'flare');assert.equal(get('S.sd.v.discard.length'),0);assert.equal(get('remainingPages(S.sd.v)'),3);
  console.log('PASS: charging lifecycle, threshold wounds, visibility, deck conservation, Repress, reaction wards, gear movement, AoE footprints, randomized decks, board leads and save state.');

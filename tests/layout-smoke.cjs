@@ -91,6 +91,45 @@ const path=require('node:path');
    // Approved harbor: real construction, steady night lighting, optional motion, and a fit-width phone view.
    const originalFacilities=await page.evaluate(()=>S.facilities.slice());
    await page.locator('.nav [data-a="view:construction"]').click();
+   if(size.name==='phone')await page.setViewportSize({width:320,height:740});
+   const navLayout=await page.locator('.nav .nav-tab').evaluateAll(tabs=>tabs.map(tab=>({
+     top:tab.getBoundingClientRect().top,
+     fits:tab.scrollWidth<=tab.clientWidth,
+     width:tab.clientWidth,
+     contentWidth:tab.scrollWidth,
+     current:tab.getAttribute('aria-current'),
+     action:tab.dataset.a,
+     background:getComputedStyle(tab).backgroundColor,
+   })));
+   assert.equal(navLayout.length,4,'all HQ destinations remain available');
+   assert(navLayout.every(tab=>tab.top===navLayout[0].top&&tab.fits),'nav labels fit a single row: '+JSON.stringify(navLayout));
+   assert.deepEqual(navLayout.filter(tab=>tab.current==='page').map(tab=>tab.action),['view:construction']);
+   assert.equal(navLayout.find(tab=>tab.current==='page').background,'rgba(0, 0, 0, 0)','selected tab paints only its slanted plate');
+   if(size.name==='phone'){
+     const mast=await page.evaluate(()=>{
+       const tools=document.querySelector('.mast-tools').getBoundingClientRect();
+       const res=document.querySelector('.mast>.res').getBoundingClientRect();
+       return {aligned:Math.abs((tools.top+tools.bottom)-(res.top+res.bottom))<2,fits:tools.right<=innerWidth};
+     });
+     assert(mast.aligned&&mast.fits,'phone mast shares a row for resources and menu');
+     const fullLedger=await page.evaluate(()=>{
+       const salvage=S.salvage;
+       S.salvage=Object.fromEntries(Object.keys(salvage).map(key=>[key,18]));
+       render();
+       const header=document.querySelector('.mast').getBoundingClientRect();
+       const res=document.querySelector('.mast>.res');
+       const rect=res.getBoundingClientRect();
+       const rows=new Set([...res.children].map(chip=>chip.getBoundingClientRect().top)).size;
+       const chips=res.children.length;
+       S.salvage=salvage;
+       render();
+       return {ratio:rect.width/header.width,rows,chips,left:header.left,right:innerWidth-header.right};
+     });
+     assert(fullLedger.chips>=12&&fullLedger.ratio>.9&&fullLedger.rows<=4,
+       'full salvage ledger uses the phone mast width: '+JSON.stringify(fullLedger));
+     assert(fullLedger.left<=6&&fullLedger.right<=6,'phone mast sits within the narrow safe gutter');
+     await page.setViewportSize({width:size.width,height:size.height});
+   }
    await page.evaluate(()=>{S.facilities=Object.keys(FAC);hqSetPref('lighting','day');hqSetPref('motion','on');render()});
    assert.equal(await page.locator('.hq-plot.is-built').count(),17);
    const campus=await page.evaluate(async()=>{
@@ -147,6 +186,11 @@ const path=require('node:path');
    assert.equal(await page.locator('[data-cid="h-'+heroId+'"]').getAttribute('open'),'','Selecting a hero opens the actual full sheet');
    await page.locator('.nav [data-a="view:villains"]').click();
    await checkPage('villains','.bh-threat-content','.bh-threat-rail');
+   const threatBurst=await page.locator('.bh-pagehead').evaluate(head=>({
+     burst:parseFloat(getComputedStyle(head,'::before').width),
+     header:head.clientWidth,
+   }));
+   assert(Math.abs(threatBurst.burst-threatBurst.header)<2,'threat header burst spans the full panel');
    const portrait=page.locator('.villain-dossier-art svg.vportrait').first();
    assert(await portrait.count()>0,'Villain dossier illustration exists');
    const portraitRect=await portrait.boundingBox();
@@ -160,7 +204,7 @@ const path=require('node:path');
    await page.locator('.bh-combat-brief').waitFor();
    assert(await page.locator('.vportrait-combat svg.vportrait').count()>0,'Combat includes villain portrait');
    await assertStablePalette('Combat',['body','.mast','.nav .btn','.bh-combat-brief','.bcol','.bact','.brest','.board','.cell']);
-   await page.locator('.sdp .bcol .board').waitFor();
+   await page.locator('.sdp .bcol .board.iso-board').waitFor();
    await page.locator('.sdp .bact').waitFor();
    const combat=await page.evaluate(()=>{
      const rect=s=>document.querySelector(s).getBoundingClientRect();
@@ -193,7 +237,6 @@ const path=require('node:path');
        assert(landscape.boardRight<=landscape.actionsLeft,'landscape actions sit to the right of board');
        assert(landscape.actionsRight<=viewport.width&&landscape.overflow<=2,'landscape fits phone width');
      }
-     await page.locator('[data-a="battleArt"]').click();
      await page.locator('.board.iso-board').waitFor();
      const iso=await page.locator('.board.iso-board').boundingBox(),actions=await page.locator('.bact').boundingBox();
      assert(iso.x+iso.width<=actions.x,'isometric landscape board also stays beside actions');
@@ -205,6 +248,9 @@ const path=require('node:path');
      assert(portraitBoard.width>=390*.96,'portrait board returns to full phone width');
      assert.equal(await page.evaluate(()=>JSON.stringify(S)),saved,'rotation preserves the active battle');
      await page.locator('[data-a="battleArt"]').click();
+     await page.locator('.board:not(.iso-board)').waitFor();
+     await page.locator('[data-a="battleArt"]').click();
+     await page.locator('.board.iso-board').waitFor();
    }
 
    await page.evaluate(()=>{S.phase='hq';S.view='villains';startInv('cantor');render()});

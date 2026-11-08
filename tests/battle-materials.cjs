@@ -23,7 +23,7 @@ const fs=require('node:fs');
       S.heroes=['volt','bulwark','wisp','lynx'].map(x=>newHero(x));
       S.party=S.heroes.map(h=>h.id);
       S.villains=[makeVillain('cantor',2)];S.pool=[];
-      S.inv={v:'cantor',clues:3};startShowdown();S.sd.intro=false;S.sd.sel=0;render();
+      S.inv={v:'cantor',clues:3};startShowdown();S.sd.intro=false;S.sd.sel=0;isoEnabled=false;render();
     });
     await p.locator('.board.lair.L-cantor .cell').first().waitFor();
     assert(await p.locator('.board .tok.hst').count()>0,'hero standees retained');
