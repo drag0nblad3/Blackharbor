@@ -1,5 +1,5 @@
 /* Isometric presentation only. Distances, facing, collision and saves stay in hex space. */
-let isoEnabled=false;
+let isoEnabled=true;
 ACT.battleArt=()=>{isoEnabled=!isoEnabled;lastPos={}};
 const ISO_KEYS=['bulwark','volt','wisp','cipher','rivet','lynx','goliath','sibyl','hexen','gallows','quarry','cantor','architect','helios','serpent','lode','noct','swarm','bomber','grid','mole','sting','shell','civilian','m-gallows','m-quarry','m-cantor','m-architect','m-helios','m-serpent','m-lode','m-noct','m-swarm','m-bomber','m-grid','civilian2'];
 let isoAngle=-15,isoFrameCache=null;
@@ -20,6 +20,7 @@ function isoControls(){return `<div class="iso-camera" role="group" aria-label="
 const ISO_CAST_GROUPS=[['cipher','rivet','goliath','sibyl','hexen','civilian','civilian2','sting','shell'],['m-gallows','m-quarry','m-cantor','m-architect','m-helios','m-serpent'],['m-lode','m-noct','m-swarm','m-bomber','m-grid','m-mole']];
 const ISO_HERO_SPRITES=['bulwark','volt','wisp','lynx'];
 const ISO_COVER_GROUPS=[['gallows','quarry','cantor','architect'],['helios','serpent','lode','noct'],['swarm','bomber','grid','mole']];
+const ISO_VILLAIN_VARIANTS={architect:'architect-left',grid:'gridlock-left'};
 function isoSprite(key,label,scale=1){
  const canonical=key==='hive'?'swarm':key,i=Math.max(0,ISO_KEYS.indexOf(canonical));
  const group=ISO_COVER_GROUPS.findIndex(a=>a.includes(canonical)),slot=group<0?0:ISO_COVER_GROUPS[group].indexOf(canonical);
@@ -28,6 +29,8 @@ function isoSprite(key,label,scale=1){
  if(heroSlot>=0)art=`background-image:url(assets/isometric/heroes-superhero.webp);background-size:200% 200%;background-position:${heroSlot%2*100}% ${Math.floor(heroSlot/2)*100}%;`;
  const castGroup=ISO_CAST_GROUPS.findIndex(a=>a.includes(canonical));
  if(castGroup>=0){const castSlot=ISO_CAST_GROUPS[castGroup].indexOf(canonical),rows=castGroup===0?3:2;art=`background-image:url(assets/isometric/cast-${castGroup+1}.webp);background-size:300% ${rows*100}%;background-position:${castSlot%3*50}% ${Math.floor(castSlot/3)/(rows-1)*100}%;`}
+ const variant=ISO_VILLAIN_VARIANTS[canonical];
+ if(variant)art=`background-image:url(assets/isometric/${variant}.webp);background-size:100% 100%;background-position:center;`;
  return `<span class="iso-figure" data-sprite="${esc(canonical)}" style="${art}--face:1;--sx:${i%6*20}%;--sy:${Math.floor(i/6)*20}%;--size:${scale}" aria-hidden="true"></span><span class="iso-name">${esc(label)}</span>`;
 }
 function isoProp(kind,p,pos,badge=''){
@@ -63,9 +66,13 @@ function isoBoard(sd,reachM,tg,al){
  buttons+=`<button class="iso-cell ${cls}" data-cell="${k}" data-tip="cell:${x}:${y}" style="${pos(p)};width:${hexW/W*100}%;height:${hexH/H*100}%;clip-path:polygon(${Array.from({length:6},(_,i)=>{const a=(i*60-90)*Math.PI/180,q=isoPoint(h.cx+Math.cos(a)*HS,h.cy+Math.sin(a)*HS);return `${50+(q.x-p.x)/hexW*100}% ${50+(q.y-p.y)/hexH*100}%`}).join(',')})" aria-label="Hex ${x+1},${y+1}${wall?', wall':rubble?', rubble':pit?', pit':haz?', hazard':''}${exit?', exit':''}${danger?', blast danger':''}"></button>`;
  if(wall||rubble)objects.push({d:p.y,html:isoProp(wall?'wall':'rubble',p,pos)});
  }
- const token=(p,key,label,tid,cls='',scale=1,badge='')=>{objects.push({d:p.y,html:`<div class="iso-unit ${cls}" data-tid="${tid}" data-cx="${p.x}" data-cy="${p.y}" style="${pos(p)};--depth:${Math.round(p.y*100)}">${isoSprite(key,label,scale)}${badge?`<b class="iso-badge">${esc(badge)}</b>`:''}</div>`})};
+ const token=(p,key,label,tid,cls='',scale=1,badge='',title=label)=>{objects.push({d:p.y,html:`<div class="iso-unit ${cls}" title="${esc(title)}" data-tid="${tid}" data-cx="${p.x}" data-cy="${p.y}" style="${pos(p)};--depth:${Math.round(p.y*100)}">${isoSprite(key,label,scale)}${badge?`<b class="iso-badge">${esc(badge)}</b>`:''}</div>`})};
  sd.units.forEach((u,i)=>{const h=heroOf(u);token(point(u.x,u.y),h.cls,h.name,'h'+u.hid,`hero ${sd.sel===i?'selected':''} ${u.ko?'ko':''} ${u.moved&&u.acted?'spent':''}`,1,u.guard?'◆':'')});
- sd.hench.forEach(m=>token(point(m.x,m.y),'m-'+m.owner,hName(m),'m'+m.id,`enemy ${m.elite?'elite':''}`,m.elite?1.1:.9,String(m.hp)));
+ sd.hench.forEach(m=>{
+  const name=hName(m);
+  const title=m.shadow?'Stolen shadow · 1 HP':m.infested?'Infested mite · next boss action':name;
+  token(point(m.x,m.y),'m-'+m.owner,name,'m'+m.id,`enemy ${m.elite?'elite':m.infested?'infested':m.shadow?'shadow':''}`,m.elite?1.1:.9,String(m.hp),title);
+ });
  (sd.dupes||[]).forEach(m=>token(point(m.x,m.y),'m-'+m.owner,'Shadow double','d'+m.id,'double',.9,'∞'));
  sd.civs.forEach(c=>token(point(c.x,c.y),eyeHash(c.id)%2?'civilian':'civilian2','Civilian','c'+c.id,'civilian',.86,c.f?'↗':''));
  let footprints='',serpents='';sd.vl.forEach((o,i)=>{const v=o.v;if(v.down)return;vCells(v).forEach(c=>{const h=HC(c.x,c.y);footprints+=`<polygon class="iso-footprint" points="${poly(h.cx,h.cy,.82)}"/>`});

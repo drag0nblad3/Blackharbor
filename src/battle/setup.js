@@ -8,7 +8,7 @@ const fxP=(x,y,t,k)=>{const c=HC(x,y);fx(c.cx,c.cy,t,k)};
 const fxU=(u,t,k)=>fxP(u.x,u.y,t,k);
 const fxV=(t,k)=>{const c=vCtr(S.sd.v);fx(c.cx,c.cy,t,k)};
 const SFX_HIT=['BAM!','POW!','WHAM!','KRAK!','THWACK!','BOOM!'],SFX_VHIT=['THOOM!','KRASH!','SMACK!','CRUNCH!'];
-function mkUnit(h,x,y){return {hid:h.id,x,y,moved:false,acted:false,ko:false,anchor:setOn(h,'lode'),res:{tech:pwrMax(h),magic:arcMax(h)},innUsed:0,buffDice:0,buffStr:0}}
+function mkUnit(h,x,y){return {hid:h.id,x,y,moved:false,acted:false,ko:false,anchor:setOn(h,'lode'),res:{tech:pwrMax(h),magic:arcMax(h)},innUsed:0,buffDice:0,buffStr:0,pwr:powered(h)}}
 function freeTiles(f){const out=[];for(let y=0;y<N;y++)for(let x=0;x<N;x++)if(!blocked(x,y)&&(!f||f(x,y)))out.push({x,y});return out}
 
 function focusV(i){const sd=S.sd;if(i<0||!sd.vl[i])return;sd.vi=i;sd.v=sd.vl[i].v;sd.vkey=sd.vl[i].key}
@@ -72,7 +72,7 @@ function startShowdown(opt={}){
   const hs=party();
   if(q==='ambush'&&!S.facilities.includes('hangar')){hs.forEach(h=>{const t=pick(freeTiles((x,y)=>y>=3&&y<=N-2));sd.units.push(mkUnit(h,t.x,t.y))})}
   else{const cols=fin?[2,4,6,8]:[1,3,5,7];hs.forEach((h,i)=>{let x=cols[i%cols.length],y=N-1;if(blocked(x,y)){const t=pick(freeTiles((a,b)=>b>=N-2));x=t.x;y=t.y}sd.units.push(mkUnit(h,x,y))})}
-  hs.forEach(h=>{h.comp=stat(h,'maxComp');h.cd=0});
+  hs.forEach(h=>{h.comp=heroStart(h);h.cd=0});
   lastPos={};
   sd.vl.forEach((o,vi)=>{const n=Math.min(4,fin?Math.ceil(o.v.level/2):o.v.level)+(q==='ambush'?1:0);
     for(let i=0;i<n;i++){const t=pick(freeTiles((x,y)=>y>=1&&y<=4&&Math.abs(x-(o.v.x+.5))<=3))||pick(freeTiles((x,y)=>y<=5));if(t)sd.hench.push({id:'h'+vi+'_'+i,owner:o.key,x:t.x,y:t.y,hp:regularHenchHp(o.key)})}

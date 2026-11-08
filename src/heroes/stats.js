@@ -8,13 +8,28 @@ const techGearN=h=>wornGear(h).filter(g=>GEAR[g]&&GEAR[g].type==='tech').length;
 const magicGearA=h=>wornGear(h).reduce((s,g)=>s+((GEAR[g]&&GEAR[g].reqs&&GEAR[g].reqs.magic)||0),0);
 const pwrMax=h=>h.ranks.tech?h.ranks.tech+techGearN(h)+stat(h,'maxPwr')+(reactorOn()?3:0):0;
 const arcMax=h=>h.ranks.magic?h.ranks.magic+magicGearA(h)+stat(h,'maxArc')+(reactorOn()?1:0):0;
-const pwrRegen=h=>1+stat(h,'pwrRegen');
+/* Powered gear (Tyler, 2026-11-07): a Tech Body item is the Core and gives power slots equal to its tier + 1.
+   It powers itself first; only then can it power other Tech items, one slot each. An unpowered Tech item keeps
+   its stats but its ability is off. Every unused slot adds +1 Power recharge. h.pwr = keys the player chose
+   (undefined = auto in slot order); the Core always comes first unless h.pwrOff. The scripted tutorial powers everything. */
+const PWR_ORDER=['body','head','arms','arms2','acc','acc2','belt','legs'];
+const coreOf=h=>{const k=h.gear&&h.gear.body,g=k&&GEAR[k];return g&&g.type==='tech'?k:null};
+const pwrSlots=h=>{const k=coreOf(h);return k?(GEAR[k].req||1)+1:0}; /* tier + 1 (Tyler, 2026-11-07): even a tier 1 Core powers one more item */
+const pwrNeeds=k=>{const g=GEAR[k];return !!(g&&g.type==='tech'&&g.ab&&!g.cons)};
+function pwrWorn(h){const o=[];PWR_ORDER.forEach(s=>{const k=h.gear&&h.gear[s];if(k&&GEAR[k]&&GEAR[k].type==='tech'&&!o.includes(k))o.push(k)});return o}
+function powered(h,list){const core=coreOf(h),worn=pwrWorn(h);if(tutOn())return worn;if(!core)return [];
+  if(list?!list.includes(core):h.pwrOff)return [];const want=(list||h.pwr||worn).filter(k=>worn.includes(k));
+  const o=[core];want.forEach(k=>{if(k!==core&&o.length<pwrSlots(h))o.push(k)});return o}
+const pwrSpare=(h,list)=>Math.max(0,pwrSlots(h)-powered(h,list).length);
+const unitPwr=(u,h)=>u.pwr?powered(h,u.pwr):powered(h);
+const isPowered=(u,h,k)=>!pwrNeeds(k)||(u?unitPwr(u,h):powered(h)).includes(k);
+const pwrRegen=(h,u)=>1+stat(h,'pwrRegen')+pwrSpare(h,u&&u.pwr);
 /* Version 123 (Tyler): Innate rank is gone; Innate abilities use the Innate rank itself */
 const potOf=h=>h.ranks.innate||0;
 const innUses=h=>1+stat(h,'innUses');
 const resMax=(h,t)=>t==='tech'?pwrMax(h):t==='magic'?arcMax(h):0;
 const canWear=(h,g)=>Object.entries(GEAR[g].reqs).every(([t,n])=>h.ranks[t]>=n);
-/* Shaken: a hero at 0 composure in a fight */
+/* Shaken: a hero at 0 Heroism in a fight */
 const SHAKEN={str:3,acc:3,eva:3,move:1}; /* Tyler (2026-10-30): -3s, and no lasting Rattled injury */
 function stat(h,k,raw){const b=BASE(h);let v=b[k]??0;
   for(const u of h.upgrades)v+=UPG[u].mods[k]||0;
@@ -29,7 +44,7 @@ function stat(h,k,raw){const b=BASE(h);let v=b[k]??0;
   if(S.sd&&h.comp<=0&&SHAKEN[k]&&!rankMod(h,'innate','unshake'))v-=SHAKEN[k];
   /* Version 108 (Tyler): Optics Bench scope rails, +1 range and +1 accuracy in showdowns for heroes with range 2+ */
   if(!raw&&S.sd&&(k==='range'||k==='acc')&&S.facilities.includes('optics')&&(k==='range'?v:stat(h,'range',1))>=2)v+=1;
-  if(k==='move'||k==='maxComp'||k==='speed')v=Math.max(1,v);
+  if(k==='move'||k==='speed')v=Math.max(1,v);
   return v}
 /* Version 124: the Innate capstone's extra Innate ability is once per fight, and comes back after a round in which the hero used no abilities */
 const innOk=(u,h)=>(u.innUsed||0)<1+(stat(h,'innUses')>0&&!u.capUsed?1:0);
@@ -62,4 +77,4 @@ const bench=()=>roster().filter(h=>!(S.party||[]).includes(h.id));
 const partyHas=fid=>party().some(h=>BASE(h).field&&BASE(h).field.id===fid);
 const fieldGear=fid=>party().flatMap(h=>Object.values(h.gear).filter(g=>GEAR[g].field&&GEAR[g].field.id===fid).map(g=>({h,g})));
 const fieldCount=fid=>fieldGear(fid).length;
-function clampHero(h){h.hp=Math.min(h.hp,stat(h,'maxHp'));h.comp=Math.min(h.comp,stat(h,'maxComp'))}
+function clampHero(h){h.hp=Math.min(h.hp,stat(h,'maxHp'))} /* Heroism has no cap */

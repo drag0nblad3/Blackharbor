@@ -1,8 +1,4 @@
-site/
-node_modules/
-tools/cache/
-blackharbor-joined.html
-shots/
 # Test and study output
 *-results/
 layout-shots/
+node_modules/
