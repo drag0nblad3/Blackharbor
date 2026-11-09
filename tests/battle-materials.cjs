@@ -19,6 +19,7 @@ const fs=require('node:fs');
     const errors=[];p.on('pageerror',e=>errors.push(e.message));
     await p.goto('file://'+process.cwd()+'/index.html');
     await p.evaluate(()=>{
+      isoEnabled=false; // isometric is now the default board; this test covers the classic illustrated arena
       newCampaign();S.tut=null;S.tutDone=true;S.guide=null;
       S.heroes=['volt','bulwark','wisp','lynx'].map(x=>newHero(x));
       S.party=S.heroes.map(h=>h.id);

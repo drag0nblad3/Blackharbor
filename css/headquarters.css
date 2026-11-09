@@ -97,14 +97,49 @@
 #app.wrap:not(.sprite-gallery):not(.v-sd) .mast>.mast-tools{min-width:0;flex-wrap:wrap}
 #app.wrap.v-sd .mast .bh-comic-brand{flex:0 1 200px;max-width:200px}
 @media(max-width:600px){
-  #app.wrap:not(.sprite-gallery):not(.v-sd) .mast{grid-template-columns:1fr}
+  #app.wrap:not(.sprite-gallery) .mast{padding:3px 6px;gap:3px 5px}
   #app.wrap:not(.sprite-gallery):not(.v-sd) .mast>.bh-comic-brand{grid-column:1/-1;max-width:none}
-  #app.wrap:not(.sprite-gallery):not(.v-sd) .mast>.mast-tools{grid-column:1/-1;margin:0;justify-content:space-between}
+  #app.wrap:not(.sprite-gallery):not(.v-sd) .mast>.res{grid-column:1;grid-row:2;padding:0;border:0}
+  #app.wrap:not(.sprite-gallery):not(.v-sd) .mast>.mast-tools{grid-column:2;grid-row:2;margin:0;gap:4px}
+  /* Give the salvage ledger the full width once it outgrows the compact row. */
+  #app.wrap:not(.sprite-gallery):not(.v-sd) .mast>.res:has(.chip:nth-child(5)){
+    grid-column:1/-1;
+    grid-row:3;
+  }
+  #app.wrap:not(.sprite-gallery):not(.v-sd) .mast:has(.res .chip:nth-child(5))>.mast-tools{
+    grid-column:1/-1;
+    justify-content:space-between;
+  }
+  #app.wrap:not(.sprite-gallery) .mast .issue{font-size:.68rem;padding:2px 4px}
+  #app.wrap:not(.sprite-gallery) .mast .mast-save-btn{padding-inline:5px}
+  #app.wrap.v-sd .mast{display:grid;grid-template-columns:minmax(0,1fr) auto auto}
+  #app.wrap.v-sd .mast>.res{padding:0;border:0}
+  #app.wrap.v-sd .mast>.mast-tools{gap:4px}
 }
 @media(max-width:600px){
-  #app.wrap:not(.v-sd) .nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  #app .hq-grounds{border-width:2px;box-shadow:2px 2px 0 #142638}
   #app .hq-construction-heading h2{font-size:1.3rem}
   #app .hq-construction-heading>.btn{max-width:125px}
 }
 /* Phone landscape still needs comfortable scene-control targets. */
 @media(pointer:coarse){#app .hq-light-picker,#app .hq-motion-toggle{min-height:44px}}
+
+/* Printed title bands and inset rules for the construction folio. */
+#app .hq-construction-heading{
+  padding:7px 10px;
+  border:2px solid #142638;
+  border-radius:8px 1px;
+  box-shadow:inset 0 0 0 1px #fffdf1;
+  background:repeating-linear-gradient(130deg,transparent 0 7px,#14263814 7px 11px) right 8px center / 27px 55% no-repeat;
+}
+@media(min-width:761px){#app .hq-construction-heading{padding-right:46px}}
+#app .hq-fac-detail{border-radius:8px 1px}
+#app .hq-fac-detail h3{
+  padding:0 7px 5px;
+  border-bottom:2px solid #142638;
+  background:repeating-linear-gradient(130deg,transparent 0 7px,#14263822 7px 11px) right 3px center / 27px 55% no-repeat;
+}
+#app .hq-fac-choice.is-selected{
+  border-radius:7px 1px;
+  box-shadow:inset 0 0 0 1px #fffdf1;
+}

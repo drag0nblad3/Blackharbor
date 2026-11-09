@@ -29,7 +29,6 @@
 .fx.k-say{animation-duration:1.6s}
 #stage{position:fixed;inset:0;pointer-events:none;z-index:40;overflow:hidden}
 #stage .a-full{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
-#stage .a-flash{position:absolute;inset:0;background:#fff;mix-blend-mode:overlay}
 #stage .a-orb,#stage .a-ring,#stage .a-slash,#stage .a-puff,#stage .a-spark,#stage .a-plus,#stage .a-throw,#stage .a-box{position:absolute;transform:translate(-50%,-50%)}
 #stage .a-orb{border-radius:50%;background:#fff}
 #stage .a-ring{border-radius:50%;border:4px solid}
@@ -80,6 +79,27 @@
 #atk{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;cursor:pointer;
   background:color-mix(in srgb,#151821 62%,transparent);padding:max(16px,env(safe-area-inset-top,0px)) 16px max(16px,env(safe-area-inset-bottom,0px));animation:fadeIn .15s}
 #atk.leaving{animation:fadeOut .2s forwards}
+/* Heroism spend pop-up (src/battle/heroism.js) */
+#hpop,#hpref{position:fixed;inset:0;z-index:62;display:flex;align-items:center;justify-content:center;padding:max(16px,env(safe-area-inset-top,0px)) 16px max(16px,env(safe-area-inset-bottom,0px));
+  background:color-mix(in srgb,#151821 55%,transparent);animation:fadeIn .15s}
+#hpop.leaving,#hpref.leaving{animation:fadeOut .15s forwards}
+#hpop .hpp,#hpref .hpp{width:min(100%,420px);background:var(--panel);color:var(--ink);border:3px solid #151821;box-shadow:6px 6px 0 #151821;padding:12px;display:flex;flex-direction:column;gap:8px}
+#hpop .ah,#hpref .ah{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+#hpop .ah b,#hpref .ah b{font-family:var(--sfx);font-size:1.5rem;letter-spacing:.03em;color:var(--cyan)}
+#hpop .ah small,#hpref .ah small{font-weight:700;font-size:.78rem;color:var(--muted)}
+#hpop .hcard,#hpref .hcard{font-weight:800;border:2px solid #151821;background:var(--paper);padding:4px 8px}
+#hpop p,#hpref p{margin:0}
+#hpop .warn,#hpref .warn{color:var(--magenta)}
+#hpop .row,#hpref .row{display:flex;gap:8px;flex-wrap:wrap}
+#hpop .row .btn,#hpref .row .btn{flex:1 1 140px}
+#hpref .hpr{display:flex;flex-direction:column;gap:2px;border-top:1.5px dashed var(--muted);padding-top:6px}
+#hpref .hpr>span:first-child{display:flex;justify-content:space-between;gap:8px}
+#hpref output{font-weight:800;color:var(--cyan)}
+#hpref input[type=range]{width:100%;accent-color:var(--cyan)}
+#hpref .ticks{position:relative;height:1.2em;font-size:.68rem;color:var(--muted)}
+#hpref .ticks i{position:absolute;top:0;font-style:normal;white-space:nowrap;transform:translateX(-50%)}
+#hpref .ticks i:nth-child(1){left:0;transform:none}#hpref .ticks i:nth-child(2){left:33.3%}#hpref .ticks i:nth-child(3){left:66.7%}#hpref .ticks i:nth-child(4){right:0;transform:none}
+#atk .die.hb{outline:3px solid var(--cyan);outline-offset:1px}
 #atk .atkp{width:min(100%,540px);max-height:calc(100dvh - 110px);overflow:auto;background:var(--panel);color:var(--ink);border:3px solid #151821;box-shadow:6px 6px 0 #151821;padding:12px;display:flex;flex-direction:column;gap:10px;animation:atkIn .25s cubic-bezier(.2,1.4,.5,1)}
 #atk .ah{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
 #atk .ah b{font-family:var(--sfx);font-size:1.5rem;letter-spacing:.03em}
@@ -177,3 +197,17 @@
 .fx.k-dmg .b::before,.fx.k-dmg .b::after,.fx.k-dmgh .b::before,.fx.k-dmgh .b::after{display:none}
 .fx.k-dmg .b span,.fx.k-dmgh .b span{font-size:clamp(1.3rem,6vw,2rem);color:#FFD27A;-webkit-text-stroke:2px #151821;transform:rotate(-6deg)}
 .fx.k-dmgh .b span{color:#FF5A7A}
+
+/* Comic ink bursts stay anchored to the board through redraws. */
+.impact{position:absolute;z-index:6;pointer-events:none;width:clamp(36px,10vw,76px);height:auto;fill:#ffd27a;stroke:#151821;stroke-width:2;transform:translate(-50%,-50%);animation:impact-burst 420ms ease-out both}
+.impact.hero-impact{fill:#ff7890}
+.impact.ko-impact{fill:#fff0a0;width:clamp(48px,12vw,96px)}
+.impact .impact-rays{fill:none;stroke:#fff5cf;stroke-linecap:round}
+@keyframes impact-burst{
+  0%{transform:translate(-50%,-50%) scale(.35);opacity:1}
+  28%{transform:translate(-50%,-50%) scale(1);opacity:.95}
+  100%{transform:translate(-50%,-50%) scale(1.35);opacity:0}
+}
+#stage .a-dash{position:absolute;overflow:visible;transform-origin:right center;transform:translate(-100%,-50%) rotate(var(--angle));stroke-linecap:round}
+#stage .a-blast polygon{opacity:0}
+@media(prefers-reduced-motion:reduce){.impact,#stage .a-dash,#stage .a-blast{display:none}}

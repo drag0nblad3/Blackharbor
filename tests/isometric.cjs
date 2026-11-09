@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const g=require('../tools/bh').load({seed:41});
-g.run("isoEnabled=true;newCampaign();S.guide=null;S.tut=null;S.tutDone=true;S.heroes=Object.keys(HERO_BASE).map(k=>newHero(k));S.party=S.heroes.slice(0,4).map(h=>h.id)");
+g.run("newCampaign();S.guide=null;S.tut=null;S.tutDone=true;S.heroes=Object.keys(HERO_BASE).map(k=>newHero(k));S.party=S.heroes.slice(0,4).map(h=>h.id)");
 assert.equal(g.get('ISO_KEYS.length'),36);
 assert.equal(g.get('Object.keys(HERO_BASE).every(k=>ISO_KEYS.includes(k))'),true);
 assert.equal(g.get('Object.keys(VILLAINS).every(k=>ISO_KEYS.includes(k))'),true);
@@ -19,7 +19,7 @@ g.run('isoEnabled=false');assert.doesNotMatch(g.get('sdView()'),/class="board is
 for(const file of ['characters.webp','street.webp','digger.webp'])assert(fs.statSync('assets/isometric/'+file).size>10000);
 console.log('PASS: all 12 villains, nine hero identities, swarm mapping, 81 projected cells, pure rendering, classic comparison and assets.');
 assert.equal(g.get('ISO_COVER_GROUPS.flat().length'),12,'Every cover has a sprite mapping');
-for(const key of g.get('Object.keys(VILLAINS)'))assert.match(g.get(`isoSprite('${key}','Boss')`),/cover-[123]\.webp/,'Cover art replaces '+key);
+for(const key of g.get('Object.keys(VILLAINS)'))assert.match(g.get(`isoSprite('${key}','Boss')`),/(?:cover-[123]|architect-left|gridlock-left)\.webp/,'Cover art replaces '+key);
 g.run("isoEnabled=true;S.villains=[makeVillain('serpent',2)];S.inv={v:'serpent',clues:3};startShowdown()");
 const serpent=g.get('sdView()');
 assert.match(serpent,/iso-serpent-body/,'Connected serpent body is drawn');
@@ -46,9 +46,24 @@ for(const key of g.get('Object.keys(HERO_BASE)')){
  else assert.match(art,/cast-1.webp/,'Remaining hero '+key+' uses the left-facing cast atlas');
  assert.match(art,/<\/span><span class="iso-name">Readable hero name<\/span>/,'Hero name remains outside the transformed figure');
 }
-for(const key of ['gallows','m-mole','civilian'])assert.match(g.get(`isoSprite('${key}','Other')`),/--face:1;/,'Only heroes change facing');
+for(const key of g.get('[...ISO_KEYS,"m-mole"]')){
+ const original=g.get(`isoSprite('${key}','Actor')`);
+ const side=original.match(/data-facing="(left|right)"/)[1];
+ const opposite=side==='left'?'right':'left';
+ assert.match(original,/--face:1;/);
+ const alternate=g.get(`isoSprite('${key}','Actor',1,'${opposite}')`);
+ assert.match(alternate,/--face:-1;/);
+ assert.equal(alternate.replace(`data-facing="${opposite}"`,`data-facing="${side}"`).replace('--face:-1;','--face:1;'),original,'Only figure orientation changes for '+key);
+}
 assert.match(css,/transform:scale\(var\(--size\)\) scaleX\(var\(--face,1\)\)/,'Figure scale and facing compose without moving its anchor');
-console.log('PASS: all nine hero facings, four superhero mappings and unmirrored labels/other characters.');
+g.run('isoAngle=0');
+assert.equal(g.get('isoOpponentSide({x:4,y:4},[{x:1,y:4},{x:5,y:4}])'),'right','Nearest hex wins over a farther enemy');
+assert.equal(g.get('isoOpponentSide({x:4,y:4},[{x:3,y:4}])'),'left');
+assert.equal(g.get('isoOpponentSide({x:4,y:4},[{x:4,y:2}])'),null,'Vertically aligned enemies use the default pose');
+assert.equal(g.get('isoOpponentSide({x:4,y:4},[])'),null);
+g.run('isoAngle=-30');
+assert.equal(g.get('isoOpponentSide({x:4,y:4},[{x:4,y:2}])'),'left','Direction follows the rotated camera');
+console.log('PASS: both facings for all 37 sprites, nearest opponent, camera direction and unmirrored labels.');
 for(const angle of [-60,-45,-30,-15,0,15,30]){
  g.run(`isoAngle=${angle};isoFrameCache=null`);
  const geometry=g.get('(()=>{const f=isoFrame();let inside=true;for(let y=0;y<N;y++)for(let x=0;x<N;x++){const h=HC(x,y);for(let i=0;i<6;i++){const a=(i*60-90)*Math.PI/180,p=isoPoint(h.cx+Math.cos(a)*HS,h.cy+Math.sin(a)*HS);if(p.x<0||p.y<0||p.x>f.W||p.y>f.H)inside=false}}return {inside,area:f.W*f.H}})()');
@@ -63,7 +78,28 @@ g.run('ACT.isoReset()');
 console.log('PASS: camera fitting at every supported rotation, complete board visibility, reset and bounds.');
 assert.equal(g.get('ISO_CAST_GROUPS.flat().length'),21,'Remaining cast has exactly 21 new identities');
 assert.equal(g.get('new Set([...ISO_HERO_SPRITES,...ISO_COVER_GROUPS.flat(),...ISO_CAST_GROUPS.flat()]).size'),37,'All 37 character identities have a new style mapping');
-for(const key of g.get('[...ISO_KEYS,"m-mole"]'))assert.match(g.get(`isoSprite('${key}','Actor')`),/background-image:url\(assets\/isometric\/(?:cover-[123]|cast-[123]|heroes-superhero)\.webp\)/,key+' never falls back to the old atlas');
+for(const key of g.get('[...ISO_KEYS,"m-mole"]'))assert.match(g.get(`isoSprite('${key}','Actor')`),/background-image:url\(assets\/isometric\/(?:cover-[123]|cast-[123]|heroes-superhero|architect-left|gridlock-left)\.webp\)/,key+' never falls back to the old atlas');
 console.log('PASS: full 37-character style coverage with no legacy atlas fallback.');
 for(const file of ['heroes-superhero.webp','cast-1.webp','cast-2.webp','cast-3.webp'])assert(fs.statSync('assets/isometric/'+file).size>10000,'New style sheet '+file+' is packaged');
 assert.match(fs.readFileSync('isometric-sprites.html','utf8'),/galleryGroups/,'Full-cast review gallery is packaged');
+
+for(const [key,asset] of [['architect','architect-left'],['grid','gridlock-left']]){
+ const url='assets/isometric/'+asset+'.webp';
+ assert(fs.statSync(url).size>1000,asset+' is packaged');
+ for(const expr of [`isoSprite('${key}','Actor')`,`vPortrait('${key}')`,`vIc('${key}')`]){
+  assert(g.get(expr).includes(url),key+' uses the approved pose in '+expr);
+ }
+}
+
+assert.equal(g.get('isoPoseArt.size'),37,'Each battle sprite has all three alternate poses');
+for(const sheet of g.get('ISO_POSE_GROUPS.map(([sheet])=>sheet)')){
+ for(const suffix of ['', '-move']){
+  const file='assets/isometric/poses/'+sheet+suffix+'.webp';
+  assert(fs.statSync(file).size>1000,file+' is packaged');
+ }
+}
+for(const pose of ['attack','defense','move']){
+ assert.match(g.get(`isoSprite('bulwark','Bulwark',1,'right','${pose}')`),new RegExp('data-facing="right" data-pose="'+pose+'"'));
+ assert(css.includes(`[data-pose="${pose}"]`),pose+' selects its own sprite frame');
+}
+console.log('PASS: attack, defense and move atlases cover all 37 characters and retain both facings.');
