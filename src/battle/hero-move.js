@@ -25,21 +25,21 @@ function onCell(x,y){const sd=S.sd;if(sd.busy||sd.result)return;const k=x+','+y;
   if(u){
     if(sd.mode==='move'&&mvOk(u)){const m=reMoveOk(u)?u.mv:null,r=heroReach(u,h);
       if(m&&x===m.x&&y===m.y&&!blocked(x,y,{self:u})){mvRewind(u);u.moved=false;u.mv=null;civFollow(u);log('hero',`${h.name} steps back to where they started.`);render();return}
-      if(k in r&&!(x===u.x&&y===u.y)){const lp=reachH.leaps.has(k),sw=sd.civs.find(c=>c.x===x&&c.y===y);if(m){m.boost+=u.boost||0;m.jump=m.jump||u.jump;m.bj=m.bj||u.boostJump;mvRewind(u)}else u.mv={x:u.x,y:u.y,hm:u.hexesMoved||0,boost:u.boost||0,jump:!!u.jump,bj:!!u.boostJump,acted:!!u.acted};
+      if(k in r&&!(x===u.x&&y===u.y)){A.dash(ctrU(u),HC(x,y),BASE(h).glow);const lp=reachH.leaps.has(k),sw=sd.civs.find(c=>c.x===x&&c.y===y);if(m){m.boost+=u.boost||0;m.jump=m.jump||u.jump;m.bj=m.bj||u.boostJump;mvRewind(u)}else u.mv={x:u.x,y:u.y,hm:u.hexesMoved||0,boost:u.boost||0,jump:!!u.jump,bj:!!u.boostJump,acted:!!u.acted};
         if(sw){sw.x=u.x;sw.y=u.y}u.hexesMoved=(u.hexesMoved||0)+r[k];u.x=x;u.y=y;u.moved=true;u.jump=false;u.boost=0;u.boostJump=false;u.mv.at=k;if(litMap()[k])u.mv.lock=true;sd.mode=reMoveOk(u)?'move':null;if(lp){fxU(u,'HUP!','good');log('hero',`${h.name} jumps clear over a beam.`)}beamStep(u);if(u.ko)u.mv.lock=true;civFollow(u);render();return}}
     if(sd.mode==='attack'||sd.mode==='arc'){const rng=stat(h,'range');let t=null;
       if(vAt>=0&&dV(u,sd.vl[vAt].v)<=rng&&!shotVB(u,sd.vl[vAt].v)){focusV(vAt);t='v';sd.aim={x,y}}else{const m=sd.hench.find(m=>m.x===x&&m.y===y&&cheb(m,u)<=rng&&!shotBlocked(u,m));if(m)t=m}
       if(t){const arc=sd.mode==='arc';return act(async()=>{u.acted=true;if(arc)payPow(u,h);await heroAttack(u,t,arc?1:0);if(arc&&!sd.result)await splash(t)})}}
-    if(sd.mode==='rallySpirit'&&unitIdx>=0&&!u.acted&&!u.ko&&cheb(u,sd.units[unitIdx])<=lvlOf(h)){const tu=sd.units[unitIdx],t=heroOf(tu);return act(async()=>{u.acted=true;if(tu!==u)await A.shot(ctrU(u),ctrU(tu),COL.heal);await A.heal(ctrU(tu),COL.heal);const gained=Math.min(3,Math.max(0,stat(t,'maxComp')-t.comp));t.comp+=gained;fxU(tu,gained?'+'+gained+' SPIRIT':'STEADY!','good');log('hero',`${h.name} rallies ${tu===u?'themselves':t.name}, restoring ${gained} composure.`)})}
+    if(sd.mode==='rallySpirit'&&unitIdx>=0&&!u.acted&&!u.ko&&cheb(u,sd.units[unitIdx])<=lvlOf(h)){const tu=sd.units[unitIdx],t=heroOf(tu);return act(async()=>{u.acted=true;if(tu!==u)await A.shot(ctrU(u),ctrU(tu),COL.heal);await A.heal(ctrU(tu),COL.heal);const gained=3;gainHero(t,gained);fxU(tu,'+'+gained+' HEROISM','good');log('hero',`${h.name} rallies ${tu===u?'themselves':t.name}, giving ${gained} Heroism.`)})}
     if(sd.mode==='patch'&&unitIdx>=0&&cheb(sd.units[unitIdx],u)<=3){const tu=sd.units[unitIdx],t=heroOf(tu);
       return act(async()=>{payPow(u,h);if(tu!==u)await A.shot(ctrU(u),ctrU(tu),COL.heal);await A.heal(ctrU(tu),COL.heal);
-        t.hp=Math.min(stat(t,'maxHp'),t.hp+3);t.comp=Math.min(stat(t,'maxComp'),t.comp+2);fxU(tu,'+3 HP','good');log('hero',`${h.name} patches up ${t.name}.`)})}
+        t.hp=Math.min(stat(t,'maxHp'),t.hp+3);gainHero(t,2);fxU(tu,'+3 HP','good');log('hero',`${h.name} patches up ${t.name}.`)})}
     if(sd.mode==='barricade'&&cheb({x,y},u)<=2&&!blocked(x,y))return act(async()=>{payPow(u,h);await A.smoke(HC(x,y),4);sd.walls.push({k,ttl:3});fxU(u,'CLANK!','good');log('hero',`${h.name} bolts up a barricade.`)});
     if(sd.mode==='abally'&&unitIdx>=0){const key=sd.abKey,g=GEAR[key],a=g.ab,tu=sd.units[unitIdx];
       if(abOk(u,h,key)&&cheb(tu,u)<=abV(a.r,potOf(h))&&allyAbilityOK(u,tu,a))return act(async()=>{payAb(u,key);log('hero',`${h.name} uses ${a.n} on ${tu===u?'themselves':heroOf(tu).name} (${abCost(g)}).`);if(tu!==u)await A.shot(ctrU(u),ctrU(tu),COL[g.type]);await abApply(u,h,g,tu)})}
     if(sd.mode==='abtele'&&cheb({x,y},u)<=abV(GEAR[sd.abKey].ab.r,potOf(h))&&!blocked(x,y)){const key=sd.abKey,g=GEAR[key],a=g.ab;
       return act(async()=>{payAb(u,key);await A.sparkle(ctrU(u),COL[g.type]);if(a.leap)u.hexesMoved=(u.hexesMoved||0)+cheb(u,{x,y});u.x=x;u.y=y;noFlip.add('h'+u.hid);beamStep(u);render();await A.sparkle(ctrU(u),COL[g.type]);fxU(u,a.leap?'KA-THOOM!':'BAMF!','good');log('hero',`${h.name} uses ${a.n} (${abCost(g)}).`);await abApply(u,h,g,u)})}
-    if(sd.mode==='abblast'){const key=sd.abKey,g=GEAR[key],a=g.ab;if(abOk(u,h,key)&&cheb(u,{x,y})<=a.r&&!shotBlocked(u,{x,y}))return act(async()=>{payAb(u,key);await gearBlast({x,y},a.fx.blast,a.n)})}
+    if(sd.mode==='abblast'){const key=sd.abKey,g=GEAR[key],a=g.ab;if(abOk(u,h,key)&&cheb(u,{x,y})<=a.r&&!shotBlocked(u,{x,y}))return act(async()=>{payAb(u,key);battlePose('h'+u.hid,'attack');await gearBlast({x,y},a.fx.blast,a.n)})}
     if(sd.mode==='abcover'&&cheb({x,y},u)<=abV(GEAR[sd.abKey].ab.r,potOf(h))&&!blocked(x,y)){const key=sd.abKey,g=GEAR[key],a=g.ab;
       return act(async()=>{payAb(u,key);await A.smoke(HC(x,y),4);sd.walls.push({k,ttl:2});fxU(u,'CLANK!','good');log('hero',`${h.name} uses ${a.n} (${abCost(g)}): a wall goes up.`)})}
     if(sd.mode==='abstrike'&&vAt>=0){const key=sd.abKey,g=GEAR[key],a=g.ab;

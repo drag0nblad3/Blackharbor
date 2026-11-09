@@ -1,9 +1,11 @@
 /* ui/render.js: render() and the screen switch (body/bodyMain), masthead, nav tabs and their glow, page heads, collapsible panels. Add a new screen in bodyMain. */
 let lastPos={};const noFlip=new Set();
-function render(){const loadoutFocus=loadoutCaptureFocus();bossObserve();tutTick();guideTick();visitTick();const app=document.getElementById('app');app.className='wrap v-'+(S.phase==='hq'&&!tutOn()?'hq-'+(S.view||'hq'):S.phase);app.innerHTML=mast()+nav()+body()+slotPickView();loadoutRestoreFocus(loadoutFocus);if(typeof hqHarborMount==='function')hqHarborMount();if(!FAST){fixDisabled(app);flip();tutPaint()}save()}
-function flip(){const b=document.querySelector('.board');if(!b){lastPos={};return}const c=b.classList.contains('iso-board')?b.getBoundingClientRect().width/isoFrame().W:(b.getBoundingClientRect().width-5)/BW(),now={};
+function render(){if(typeof bhOpeningClose==='function')bhOpeningClose();const loadoutFocus=loadoutCaptureFocus();bossObserve();tutTick();guideTick();visitTick();const app=document.getElementById('app');app.className='wrap v-'+(S.phase==='hq'&&!tutOn()?'hq-'+(S.view||'hq'):S.phase);app.innerHTML=mast()+nav()+body()+slotPickView();loadoutRestoreFocus(loadoutFocus);if(typeof hqHarborMount==='function')hqHarborMount();if(!FAST){fixDisabled(app);flip();tutPaint()}save()}
+function flip(){const b=document.querySelector('.board');if(!b){lastPos={};return}const iso=b.classList.contains('iso-board');if(iso)isoPreloadPoses();const c=iso?b.getBoundingClientRect().width/isoFrame().W:(b.getBoundingClientRect().width-5)/BW(),now={};
   b.querySelectorAll('[data-tid]').forEach(e=>{const id=e.dataset.tid,x=+e.dataset.cx,y=+e.dataset.cy;now[id]=[x,y];const p=lastPos[id];
-    if(p&&(p[0]!==x||p[1]!==y)&&!noFlip.has(id)&&!RM){const d=Math.hypot(p[0]-x,p[1]-y);
+    const moved=p&&(p[0]!==x||p[1]!==y);
+    if(iso&&moved)isoCombatPose(id,'move');
+    if(moved&&!noFlip.has(id)&&!RM){const d=Math.hypot(p[0]-x,p[1]-y);
       e.animate([{transform:`translate(${(p[0]-x)*c}px,${(p[1]-y)*c}px)`},{transform:`translate(${(p[0]-x)*c*.5}px,${(p[1]-y)*c*.5-c*.18}px)`,offset:.5},{transform:'none'}],{duration:Math.min(520,180+90*d),easing:'ease-in-out'})}});
   noFlip.clear();lastPos=now}
 function mast(){return `<header class="mast"><div class="bh-comic-brand"><h1><img src="assets/ui/comic-masthead.webp?v=lighthouse-city-beam" alt="Blackharbor" width="2172" height="724" fetchpriority="high"></h1></div>
@@ -15,9 +17,13 @@ function mast(){return `<header class="mast"><div class="bh-comic-brand"><h1><im
 function nav(){const m=S.phase!=='hq'&&S.phase!=='over';const v=S.view;
   const pend=roster().some(h=>h.pendingUp>0);
   const g=m?{}:navGlow();
-  return `<nav class="nav">${m?`<button class="btn ${v==='mission'?'on':''}" data-a="view:mission">${UI('target')}Mission</button>`:`<button class="btn ${v==='hq'||v==='create'?'on':''} ${g.hq?'glow':''}" data-a="view:hq">${UI('hq')}Operations</button>`}
-  ${m||tutOn()?'':`<button class="btn ${v==='construction'?'on':''}" data-a="view:construction">${UI('hq')}Build HQ</button>`}
-  <button class="btn ${v==='roster'?'on':''} ${g.roster?'glow':''}" data-a="view:roster">${UI('roster')}Roster${pend?' ★':''}</button>${m?'':`<button class="btn ${v==='villains'?'on':''} ${g.villains?'glow':''}" data-a="view:villains">${UI('mask')}Villains</button>`}</nav>`}
+  const tab=(view,label,current,glow=false)=>`<button type="button" class="btn nav-tab${current?' on':''}${glow?' glow':''}" data-a="view:${view}"${current?' aria-current="page"':''}>${label}</button>`;
+  return `<nav class="nav nav-comic" aria-label="Game navigation">
+    ${m?tab('mission','Mission',v==='mission'):tab('hq','Operations',v==='hq'||v==='create',g.hq)}
+    ${m||tutOn()?'':tab('construction','Build HQ',v==='construction')}
+    ${tab('roster',pend?'Roster ★':'Roster',v==='roster',g.roster)}
+    ${m?'':tab('villains','Villains',v==='villains',g.villains)}
+  </nav>`;}
 /* tab glow: HQ while something there can be used, Roster while there is new armory gear or a pending choice, Villains once HQ and Roster have both been opened this issue */
 function visitTick(){if(S.phase!=='hq')return;if(!S.visit||S.visit.issue!==S.issue)S.visit={issue:S.issue};const v=S.view==='create'?'hq':S.view;
   if(v==='hq'||v==='roster'||v==='villains')S.visit[v]=true;if(v==='roster')S.armSeen=S.armory.slice()}

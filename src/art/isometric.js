@@ -1,5 +1,5 @@
 /* Isometric presentation only. Distances, facing, collision and saves stay in hex space. */
-let isoEnabled=false;
+let isoEnabled=true;
 ACT.battleArt=()=>{isoEnabled=!isoEnabled;lastPos={}};
 const ISO_KEYS=['bulwark','volt','wisp','cipher','rivet','lynx','goliath','sibyl','hexen','gallows','quarry','cantor','architect','helios','serpent','lode','noct','swarm','bomber','grid','mole','sting','shell','civilian','m-gallows','m-quarry','m-cantor','m-architect','m-helios','m-serpent','m-lode','m-noct','m-swarm','m-bomber','m-grid','civilian2'];
 let isoAngle=-15,isoFrameCache=null;
@@ -20,7 +20,80 @@ function isoControls(){return `<div class="iso-camera" role="group" aria-label="
 const ISO_CAST_GROUPS=[['cipher','rivet','goliath','sibyl','hexen','civilian','civilian2','sting','shell'],['m-gallows','m-quarry','m-cantor','m-architect','m-helios','m-serpent'],['m-lode','m-noct','m-swarm','m-bomber','m-grid','m-mole']];
 const ISO_HERO_SPRITES=['bulwark','volt','wisp','lynx'];
 const ISO_COVER_GROUPS=[['gallows','quarry','cantor','architect'],['helios','serpent','lode','noct'],['swarm','bomber','grid','mole']];
-function isoSprite(key,label,scale=1){
+const ISO_VILLAIN_VARIANTS={architect:'architect-left',grid:'gridlock-left'};
+// Native direction of the inked pose, independent of which hand is raised.
+const ISO_LEFT_POSES=new Set([...ISO_HERO_SPRITES,'cipher','rivet','goliath','sibyl','hexen','cantor','helios','lode']);
+function isoOpponentSide(from,opponents){
+ const h=HC(from.x,from.y),screenX=isoPoint(h.cx,h.cy).x;
+ let nearest=Infinity,offset=0;
+ for(const to of opponents){
+  const distance=cheb(from,to);
+  if(distance>nearest)continue;
+  const p=HC(to.x,to.y),dx=isoPoint(p.cx,p.cy).x-screenX;
+  // Prefer the more visibly lateral target on a distance tie.
+  if(distance===nearest&&Math.abs(dx)<=Math.abs(offset))continue;
+  nearest=distance;offset=dx;
+ }
+ return Math.abs(offset)<.0001?null:offset<0?'left':'right';
+}
+// The alternate sheets use the same character order as the idle atlases.
+const ISO_POSE_GROUPS=[
+ ['heroes-superhero',ISO_HERO_SPRITES,4,2],
+ ...ISO_COVER_GROUPS.map((keys,i)=>['cover-'+(i+1),keys,4,2]),
+ ...ISO_CAST_GROUPS.map((keys,i)=>['cast-'+(i+1),keys,3,i===0?3:2]),
+];
+const isoPoseArt=new Map();
+for(const [sheet,keys,cols,moveCols] of ISO_POSE_GROUPS){
+ const rows=Math.ceil(keys.length/cols),moveRows=Math.ceil(keys.length/moveCols);
+ keys.forEach((key,i)=>{
+  const pos=(j,c,r)=>`${j%c/(c-1)*100}% ${r===1?0:Math.floor(j/c)/(r-1)*100}%`;
+  isoPoseArt.set(key,`--combat-sheet:url(../assets/isometric/poses/${sheet}.webp);--combat-size:${cols*100}% ${rows*200}%;--attack-pos:${pos(i,cols,rows*2)};--defense-pos:${pos(i+rows*cols,cols,rows*2)};--move-sheet:url(../assets/isometric/poses/${sheet}-move.webp);--move-size:${moveCols*100}% ${moveRows*100}%;--move-pos:${pos(i,moveCols,moveRows)};`);
+ });
+}
+const ISO_POSE_MS=500;
+const isoPoseStates=new WeakMap(),isoPoseImages=new Map();
+function isoPreloadPoses(){
+ if(isoPoseImages.size)return;
+ for(const [sheet] of ISO_POSE_GROUPS)for(const suffix of ['', '-move']){
+  const image=new Image();image.src=`assets/isometric/poses/${sheet}${suffix}.webp`;
+  isoPoseImages.set(sheet+suffix,image);
+ }
+}
+function isoApplyPose(tid,pose){
+ const figure=document.querySelector(`.iso-board [data-tid="${CSS.escape(tid)}"] .iso-figure`);
+ if(figure)figure.dataset.pose=pose;
+}
+function isoCombatPose(tid,pose){
+ if(FAST||!tid||!S.sd||!document.querySelector('.iso-board'))return;
+ const battle=S.sd;
+ let states=isoPoseStates.get(battle);
+ if(!states){states=new Map();isoPoseStates.set(battle,states)}
+ const active=states.get(tid);
+ if(active){
+  const tail=active.pending.at(-1);
+  if(!tail&&active.pose===pose){active.until=performance.now()+ISO_POSE_MS;return Promise.resolve()}
+  if(tail?.pose===pose)return tail.ready;
+  let start;
+  const ready=new Promise(resolve=>{start=resolve});
+  active.pending.push({pose,ready,start});
+  return ready;
+ }
+ const state={pose,pending:[],until:performance.now()+ISO_POSE_MS};
+ states.set(tid,state);
+ isoApplyPose(tid,pose);
+ const advance=()=>{
+  if(S.sd!==battle){states.delete(tid);state.pending.forEach(p=>p.start());return}
+  const left=state.until-performance.now();
+  if(left>0){setTimeout(advance,left);return}
+  const next=state.pending.shift();
+  if(!next){states.delete(tid);isoApplyPose(tid,'idle');return}
+  state.pose=next.pose;state.until=performance.now()+ISO_POSE_MS;
+  isoApplyPose(tid,state.pose);next.start();setTimeout(advance,ISO_POSE_MS);
+ };
+ setTimeout(advance,ISO_POSE_MS);
+ return Promise.resolve();
+}
+function isoSprite(key,label,scale=1,side=null,pose='idle'){
  const canonical=key==='hive'?'swarm':key,i=Math.max(0,ISO_KEYS.indexOf(canonical));
  const group=ISO_COVER_GROUPS.findIndex(a=>a.includes(canonical)),slot=group<0?0:ISO_COVER_GROUPS[group].indexOf(canonical);
  let art=group<0?'':`background-image:url(assets/isometric/cover-${group+1}.webp);background-size:200% 200%;background-position:${slot%2*100}% ${Math.floor(slot/2)*100}%;`;
@@ -28,7 +101,10 @@ function isoSprite(key,label,scale=1){
  if(heroSlot>=0)art=`background-image:url(assets/isometric/heroes-superhero.webp);background-size:200% 200%;background-position:${heroSlot%2*100}% ${Math.floor(heroSlot/2)*100}%;`;
  const castGroup=ISO_CAST_GROUPS.findIndex(a=>a.includes(canonical));
  if(castGroup>=0){const castSlot=ISO_CAST_GROUPS[castGroup].indexOf(canonical),rows=castGroup===0?3:2;art=`background-image:url(assets/isometric/cast-${castGroup+1}.webp);background-size:300% ${rows*100}%;background-position:${castSlot%3*50}% ${Math.floor(castSlot/3)/(rows-1)*100}%;`}
- return `<span class="iso-figure" data-sprite="${esc(canonical)}" style="${art}--face:1;--sx:${i%6*20}%;--sy:${Math.floor(i/6)*20}%;--size:${scale}" aria-hidden="true"></span><span class="iso-name">${esc(label)}</span>`;
+ const variant=ISO_VILLAIN_VARIANTS[canonical];
+ if(variant)art=`background-image:url(assets/isometric/${variant}.webp);background-size:100% 100%;background-position:center;`;
+ const nativeSide=ISO_LEFT_POSES.has(canonical)?'left':'right',facing=side||nativeSide;
+ return `<span class="iso-figure" data-sprite="${esc(canonical)}" data-facing="${facing}" data-pose="${pose}" style="${art}${isoPoseArt.get(canonical)||''}--face:${facing===nativeSide?1:-1};--sx:${i%6*20}%;--sy:${Math.floor(i/6)*20}%;--size:${scale}" aria-hidden="true"></span><span class="iso-name">${esc(label)}</span>`;
 }
 function isoProp(kind,p,pos,badge=''){
  const slot={wall:0,rubble:1,terminal:2,bomb:3}[kind];
@@ -63,21 +139,35 @@ function isoBoard(sd,reachM,tg,al){
  buttons+=`<button class="iso-cell ${cls}" data-cell="${k}" data-tip="cell:${x}:${y}" style="${pos(p)};width:${hexW/W*100}%;height:${hexH/H*100}%;clip-path:polygon(${Array.from({length:6},(_,i)=>{const a=(i*60-90)*Math.PI/180,q=isoPoint(h.cx+Math.cos(a)*HS,h.cy+Math.sin(a)*HS);return `${50+(q.x-p.x)/hexW*100}% ${50+(q.y-p.y)/hexH*100}%`}).join(',')})" aria-label="Hex ${x+1},${y+1}${wall?', wall':rubble?', rubble':pit?', pit':haz?', hazard':''}${exit?', exit':''}${danger?', blast danger':''}"></button>`;
  if(wall||rubble)objects.push({d:p.y,html:isoProp(wall?'wall':'rubble',p,pos)});
  }
- const token=(p,key,label,tid,cls='',scale=1,badge='')=>{objects.push({d:p.y,html:`<div class="iso-unit ${cls}" data-tid="${tid}" data-cx="${p.x}" data-cy="${p.y}" style="${pos(p)};--depth:${Math.round(p.y*100)}">${isoSprite(key,label,scale)}${badge?`<b class="iso-badge">${esc(badge)}</b>`:''}</div>`})};
- sd.units.forEach((u,i)=>{const h=heroOf(u);token(point(u.x,u.y),h.cls,h.name,'h'+u.hid,`hero ${sd.sel===i?'selected':''} ${u.ko?'ko':''} ${u.moved&&u.acted?'spent':''}`,1,u.guard?'◆':'')});
- sd.hench.forEach(m=>token(point(m.x,m.y),'m-'+m.owner,hName(m),'m'+m.id,`enemy ${m.elite?'elite':''}`,m.elite?1.1:.9,String(m.hp)));
- (sd.dupes||[]).forEach(m=>token(point(m.x,m.y),'m-'+m.owner,'Shadow double','d'+m.id,'double',.9,'∞'));
- sd.civs.forEach(c=>token(point(c.x,c.y),eyeHash(c.id)%2?'civilian':'civilian2','Civilian','c'+c.id,'civilian',.86,c.f?'↗':''));
+ const poses=isoPoseStates.get(sd);
+ const heroes=sd.units.filter(u=>!u.ko);
+ const enemies=[
+  ...sd.hench.filter(m=>m.hp>0),...(sd.dupes||[]),
+  ...sd.vl.filter(({v})=>!v.down&&!v.hide).flatMap(({v})=>vCells(v)),
+ ];
+ const token=(unit,key,label,tid,opponents,cls='',scale=1,badge='',title=label,p=point(unit.x,unit.y))=>{
+  const side=isoOpponentSide(unit,opponents);
+  objects.push({d:p.y,html:`<div class="iso-unit ${cls}" title="${esc(title)}" data-tid="${tid}" data-cx="${p.x}" data-cy="${p.y}" style="${pos(p)};--depth:${Math.round(p.y*100)}">${isoSprite(key,label,scale,side,poses?.get(tid)?.pose)}${badge?`<b class="iso-badge">${esc(badge)}</b>`:''}</div>`});
+ };
+ sd.units.forEach((u,i)=>{const h=heroOf(u);token(u,h.cls,h.name,'h'+u.hid,u.ko?[]:enemies,`hero ${sd.sel===i?'selected':''} ${u.ko?'ko':''} ${u.moved&&u.acted?'spent':''}`,1,u.guard?'◆':'')});
+ sd.hench.forEach(m=>{
+  const name=hName(m);
+  const title=m.shadow?'Stolen shadow · 1 HP':m.infested?'Infested mite · next boss action':name;
+  token(m,'m-'+m.owner,name,'m'+m.id,heroes,`enemy ${m.elite?'elite':m.infested?'infested':m.shadow?'shadow':''}`,m.elite?1.1:.9,String(m.hp),title);
+ });
+ (sd.dupes||[]).forEach(m=>token(m,'m-'+m.owner,'Shadow double','d'+m.id,heroes,'double',.9,'∞'));
+ sd.civs.forEach(c=>token(c,eyeHash(c.id)%2?'civilian':'civilian2','Civilian','c'+c.id,enemies,'civilian',.86,c.f?'↗':''));
  let footprints='',serpents='';sd.vl.forEach((o,i)=>{const v=o.v;if(v.down)return;vCells(v).forEach(c=>{const h=HC(c.x,c.y);footprints+=`<polygon class="iso-footprint" points="${poly(h.cx,h.cy,.82)}"/>`});
- if(v.sw){swBodies(v).forEach(b=>token(point(b.x,b.y),b.k,VILLAINS[o.key].short,'v'+i+(b.i?'s'+b.i:''),'boss',1.15,'L'+v.level));return}
- const h=vCtr(v),p=isoPoint(h.cx,h.cy);token(p,o.key,VILLAINS[o.key].short,'v'+i,`boss ${v.hide?'hidden':''} ${v.charge?'charging':''}`,vCells(v).length>1&&!v.body?1.65:1.2,v.hide?'?':'L'+v.level);
+ if(v.sw){swBodies(v).forEach(b=>token(b,b.k,VILLAINS[o.key].short,'v'+i+(b.i?'s'+b.i:''),heroes,'boss',1.15,'L'+v.level));return}
+ const h=vCtr(v),p=isoPoint(h.cx,h.cy),label=VILLAINS[o.key].short;
+ token(v,o.key,label,'v'+i,heroes,`boss ${v.hide?'hidden':''} ${v.charge?'charging':''}`,vCells(v).length>1&&!v.body?1.65:1.2,v.hide?'?':'L'+v.level,label,p);
  if(v.body)serpents+=isoSerpent(v,i);
  const f=FACE_DEG[v.face??5]*Math.PI/180,q=isoPoint(h.cx+Math.cos(f)*.8,h.cy+Math.sin(f)*.8);footprints+=`<line class="iso-facing" x1="${p.x}" y1="${p.y}" x2="${q.x}" y2="${q.y}" marker-end="url(#iso-arrow)"/>`;
  });
  if(sd.term){const t=termP(),p=point(t.x,t.y);objects.push({d:p.y,html:isoProp('terminal',p,pos)})}
  (sd.bombs||[]).forEach(b=>{const t=bombP(b),p=point(t.x,t.y);objects.push({d:p.y,html:isoProp('bomb',p,pos,String(b.fuse))})});
  let beams='';(sd.beams||[]).forEach(b=>{const a=b.k0.split(',').map(Number),z=b.ks[b.ks.length-1].split(',').map(Number),p=point(...a),q=point(...z);beams+=`<line class="iso-beam" x1="${p.x}" y1="${p.y}" x2="${q.x}" y2="${q.y}"/>`});
- const now=Date.now();let fxhtml='';(sd.fx||[]).forEach(f=>{const age=now-f.born;if(age>1600)return;const p=isoPoint(f.cx,f.cy);fxhtml+=`<div class="fx k-${f.k}" style="${pos(p)};animation-delay:-${age}ms" aria-hidden="true"><div class="b"><span>${esc(f.t)}</span></div></div>`});
+ const now=Date.now(),fxhtml=(sd.fx||[]).map(f=>battleFxMarkup(f,pos(isoPoint(f.cx,f.cy)),now-f.born)).join('');
  return `<div class="board iso-board iso-material-${material}" data-iso-angle="${isoAngle}" style="aspect-ratio:${W}/${H}"><svg class="iso-floor" viewBox="0 0 ${W} ${H}" aria-hidden="true"><defs><pattern id="iso-street" width="3" height="3" patternUnits="userSpaceOnUse"><image href="assets/isometric/street.webp" width="3" height="3"/></pattern><pattern id="iso-steel" width="1.2" height=".65" patternUnits="userSpaceOnUse"><rect width="1.2" height=".65" fill="#283c47"/><image href="assets/isometric/street.webp" width="1.2" height=".65" opacity=".45"/><path d="M0 .02H1.2M.02 0V.65M.6 0V.65" stroke="#839494" stroke-opacity=".4" stroke-width=".018"/><circle cx=".09" cy=".09" r=".025" fill="#b6b7a0"/></pattern><pattern id="iso-wood" width=".9" height=".65" patternUnits="userSpaceOnUse"><rect width=".9" height=".65" fill="#483a34"/><image href="assets/isometric/street.webp" width=".9" height=".65" opacity=".25"/><path d="M0 .03H.9M0 .33H.9M.25 0V.33M.7 .33V.65" stroke="#130e15" stroke-width=".026"/><path d="M.06 .14L.6 .12M.2 .46L.85 .51" stroke="#ba9970" stroke-opacity=".2" stroke-width=".014"/></pattern><pattern id="iso-sewer" width="1" height=".6" patternUnits="userSpaceOnUse"><rect width="1" height=".6" fill="#1b3937"/><image href="assets/isometric/street.webp" width="1" height=".6" opacity=".55"/><path d="M0 0H1M0 .3H1M.5 0V.3M.22 .3V.6" stroke="#71977b" stroke-opacity=".3" stroke-width=".025"/></pattern><pattern id="iso-scales" width=".7" height=".7" patternUnits="userSpaceOnUse"><image href="assets/isometric/serpent-scales.webp" width=".7" height=".7"/></pattern><pattern id="iso-danger-stripes" width=".24" height=".24" patternUnits="userSpaceOnUse" patternTransform="rotate(30)"><rect width=".24" height=".24" fill="#b6234566"/><rect width=".1" height=".24" fill="#ff678255"/></pattern><radialGradient id="iso-pit"><stop stop-color="#000"/><stop offset=".7" stop-color="#050d14"/><stop offset="1" stop-color="#58696a"/></radialGradient><marker id="iso-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#ffd27a"/></marker></defs>${tiles}${footprints}${beams}${serpents}</svg>${buttons}${objects.sort((a,b)=>a.d-b.d).map(o=>o.html).join('')}${fxhtml}</div>`;
 }
 /* Light and rising motes accompany every successfully paid power and gear ability. */

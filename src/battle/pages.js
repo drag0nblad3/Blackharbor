@@ -21,9 +21,12 @@ function villainCardView(c){const sd=S.sd,def=VILLAINS[sd.vkey];return {vk:sd.vk
 const ARCN={front:'front',flank:'side',rear:'rear'};const arcTxt=a=>a.map(x=>ARCN[x]).join(' and ')+(a.length>1?' arcs':' arc');
 function tacticCardView(tc,h,side,inArc,why){return {mode:'open',deck:tc.sig?`${VILLAINS[tc.sig].short} · Hit reaction`:'Hit deck',tag:h.name,sfx:tc.sig?tc.sfx:TAC_SFX[tc.id]||'!',title:tc.n,text:tc.sig?rxTxt(tc,S.sd.v.level):tc.txt,
   rib:tc.sig?'Signature reaction':'',ribCls:'r',foot:[why||(tc.arc&&side?`${h.name} struck from the ${ARCN[side]} arc: ${inArc?'it triggers!':'wrong side, it does nothing.'}`:''),tc.sig&&tc.src?`Lost when ${VILLAINS[tc.sig].cards[tc.src].n} is torn from the playbook.`:''].filter(Boolean).join(' '),art:'tac',coverCls:'tac',coverTop:'Hit!',coverTitle:`${h.name} connects`,coverFoot:'Draw a hit card'}}
-async function woundAnim(foot,q){const sd=S.sd,v=sd.v,k=sd.vkey;if(!v.deck.length&&v.discard.length){v.deck=shuffle(v.discard);v.discard=[];log('sys','The playbook is reshuffled.')}
-  if(v.excise&&v.deck.length>1&&woundTarget(v)!==v.planned){const top=v.deck.slice(0,v.excise);v.excise=0;top.forEach(c=>markSeen(k,c.id));
-    const i=await choose(`Find the Flaw · ${VILLAINS[k].short}`,'Choose the page this wound tears out.',top.map(c=>({l:`${c.sig?'★ ':''}${c.n}`,s:c.txt})));const p=top[i];v.deck.splice(v.deck.indexOf(p),1);v.deck.unshift(p);log('hero',`Find the Flaw: ${p.n} is the page that tears.`)}
+async function woundAnim(foot,q,by){const sd=S.sd,v=sd.v,k=sd.vkey;if(!v.deck.length&&v.discard.length){v.deck=shuffle(v.discard);v.discard=[];log('sys','The playbook is reshuffled.')}
+  /* Magic capstone Rewrite: once per round, the first page this hero tears is picked from the next 2 */
+  const free=!(v.forceTop&&v.deck[0]===v.forceTop)&&v.deck.length>1&&woundTarget(v)!==v.planned;sd.rw=sd.rw||{};
+  const rw=free&&!v.excise&&by&&rankMod(by,'magic','rewrite')>0&&sd.rw[by.id]!==sd.round;
+  if(free&&(v.excise||rw)){const top=v.deck.slice(0,v.excise||2);if(rw)sd.rw[by.id]=sd.round;v.excise=0;top.forEach(c=>markSeen(k,c.id));
+    const i=await choose(`${rw?'Rewrite':'Find the Flaw'} · ${VILLAINS[k].short}`,'Choose the page this wound tears out.',top.map(c=>({l:`${c.sig?'★ ':''}${c.n}`,s:c.txt})));const p=top[i];v.deck.splice(v.deck.indexOf(p),1);v.deck.unshift(p);log('hero',`${rw?'Rewrite':'Find the Flaw'}: ${p.n} is the page that tears.`)}
   const c=woundTarget(v);if(c)markSeen(k,c.id);if(q)q.page=c;if(c&&!q)await reveal({vk:k,mode:'tear',deck:`${VILLAINS[k].name} · Playbook`,tag:`${Math.max(0,remainingPages(v)-1)} pages left`,sfx:TYPE_SFX[c.t]||'!',title:c.n,text:c.txt,foot,art:'vil',sig:!!c.sig,rib:c.sig?'★ Signature Move ★':''});
   const was=VINTEL[k].react.filter(r=>rxLive(v,r));
   v.hurtAt=Date.now();const end=woundV();log('hero',c?`${c.n} is torn from the playbook.`:`The last signature holds: ${v.turnDamage}/${chargeNeed(v)} wounds this round.`);
@@ -36,11 +39,11 @@ async function woundAnim(foot,q){const sd=S.sd,v=sd.v,k=sd.vkey;if(!v.deck.lengt
 function attackPanel(o){if(FAST)return Promise.resolve();
   return new Promise(res=>{const L=document.createElement('div');L.id='atk';L.setAttribute('role','dialog');L.setAttribute('aria-label',`${o.name} attacks: ${o.hits} hits, ${o.rows.filter(r=>r.ok).length} wounds`);
     const row=(r,dl)=>{const tc=r.tc,note=r.note?`<div class="note">${esc(r.note)}</div>`:'';
-      const res=r.ok?'WOUND!':r.block?'BLOCKED!':'CLANG!',roll=r.block?esc(r.blockTxt):r.auto?`${tc.sig?esc(tc.n):'Weak point'}: the wound lands.`:`Strength roll <b>${r.r}</b> + ${r.str} = ${r.r+r.str} vs toughness ${r.tough}${r.r===20?' (natural 20)':r.r===1?' (natural 1)':''}`;
+      const res=r.ok?'WOUND!':r.block?'BLOCKED!':'CLANG!',roll=r.block?esc(r.blockTxt):r.auto?`${tc.sig?esc(tc.n):'Weak point'}: the wound lands.`:`Strength roll <b>${r.r}</b> + ${r.str}${r.hb?` + ${r.hb} Heroism`:''} = ${r.r+r.str+(r.hb||0)} vs toughness ${r.tough}${r.r===20?' (natural 20)':r.r===1?' (natural 1)':''}`;
       return `<div class="arow"><div class="rx ${tc.sig?'sig':''} ${r.off?'off':''}">${dl}<span class="sfx">${esc(tc.sig?tc.sfx:TAC_SFX[tc.id]||'!')}</span><h4>${esc(tc.n)}</h4><div>${esc(tc.txt)}</div>${note}</div>
         <div class="st ${r.ok?'ok':''}"><span class="res">${res}</span><div>${roll}</div>${r.page?`<div class="torn">Torn out: ${r.page.sig?'★ ':''}${esc(r.page.n)}</div>`:''}</div></div>`};
-    const isHit=d=>d===20||(d!==1&&d+o.acc>=o.eva),acc=(d,i)=>`<div class="dl"><span class="die ${isHit(d)?'hit':''}">${d}</span><small>Die ${i+1}: ${d} + ${o.acc} = ${d+o.acc} vs evasion ${o.eva}${d===20?' (natural 20)':d===1?' (natural 1)':''}</small></div>`;
-    let k=0;const rows=o.rolls.map((d,i)=>{if(!isHit(d))return `<div class="arow"><div class="rx miss">${acc(d,i)}</div><div class="st"><span class="res">MISS</span><div>No hit card drawn.</div></div></div>`;
+    const hb=i=>(o.boost&&o.boost[i])||0,isHit=(d,i)=>d===20||(d!==1&&d+o.acc+hb(i)>=o.eva),acc=(d,i)=>`<div class="dl"><span class="die ${isHit(d,i)?'hit':''} ${hb(i)?'hb':''}">${d}</span><small>Die ${i+1}: ${d} + ${o.acc}${hb(i)?` + ${hb(i)} Heroism`:''} = ${d+o.acc+hb(i)} vs evasion ${o.eva}${d===20?' (natural 20)':d===1?' (natural 1)':''}</small></div>`;
+    let k=0;const rows=o.rolls.map((d,i)=>{if(!isHit(d,i))return `<div class="arow"><div class="rx miss">${acc(d,i)}</div><div class="st"><span class="res">MISS</span><div>No hit card drawn.</div></div></div>`;
       const r=o.rows[k++];return r?row(r,acc(d,i)):`<div class="arow"><div class="rx">${acc(d,i)}</div><div class="st"><span class="res">—</span><div>The villain is already down.</div></div></div>`});
     L.innerHTML=`<div class="atkp"><div class="ah"><b>${esc(o.name)} attacks!</b><small>${o.rolls.length} ${o.rolls.length===1?'die':'dice'} · ${o.hits} hit${o.hits===1?'':'s'} · ${o.rows.filter(r=>r.ok).length} wound${o.rows.filter(r=>r.ok).length===1?'':'s'}</small></div>
       <div class="rows">${rows.join('')}</div></div><button class="btn pri cardgo" type="button">Continue</button>`;
@@ -76,6 +79,7 @@ function plannedView(o){const v=o.v,c=v.planned;if(v.down)return '';
   return `<div class="cap ${c.sig?'warn':'charge'}" data-planned="${o.key}"><b>${VILLAINS[o.key].short} · Charging: ${known?esc(c.n):'Unrevealed action'}</b><p>${known?esc(c.txt):'Reveal this page to see its full rules.'}</p>${c.sig?`<small>${remainingPages(v)>1?`Signature: ${v.turnDamage||0}/${chargeNeed(v)} wounds this hero round. The threshold wound tears this card instead of the draw pile.`:'Last page: the next wound tears it.'}</small>`:'<small>Normal wounds tear from the draw pile.</small>'}</div>`;
 }
 function woundTarget(v){refillPages(v);
+  if(v.forceTop&&v.deck[0]===v.forceTop)return v.deck[0];
   if(v.planned&&v.planned.sig&&(v.turnDamage||0)+1>=chargeNeed(v))return v.planned;
   // Tyler (2026-10-30): the last page always tears, even a signature in the charging slot.
   return v.deck[0]||v.planned||null;

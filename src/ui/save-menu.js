@@ -200,6 +200,7 @@ function bhMenuArm(key){
 }
 function bhMenuClose(){const d=document.getElementById('bh-save-dialog');if(d)d.close()}
 function bhMenuAct(key){
+  if(key==='newgame'&&typeof bhOpeningMount==='function'){if(S.sd&&S.sd.busy){bhSaveUIStatus('Wait for the villain turn to finish first.',true);return;}bhMenuClose();bhOpeningMount();return;}
   if(bhArm.key!==key||Date.now()-bhArm.at>6000){bhMenuArm(key);
     bhSaveUIStatus(BH_ARM_TXT[key][2]+' Tap again to confirm.',false);return}
   bhMenuArm(null);
@@ -214,7 +215,7 @@ function bhMenuAct(key){
   if(key==='restart'){
     const raw=bhMenuSnap();
     if(!raw){bhSaveUIStatus('This fight began before Restart was added, so it cannot be restarted.',true);return}
-    try{localStorage.setItem(KEY,raw);window.location.reload()}
+    try{localStorage.setItem(KEY,raw);bhOpeningReload()}
     catch(e){bhSaveUIStatus('Could not restart: '+e.message,true)}
     return;
   }
@@ -262,7 +263,7 @@ function bhSaveOpen(){
     '<hr class="bh-menu-rule">',
     '<div class="eyebrow">New campaign</div>',
     '<button type="button" class="btn bh-menu-new" data-bh-arm="newgame">Start a new campaign</button>',
-    '<p class="small muted">Starts Volume '+(S.vol+1)+' at this difficulty. Your current campaign is kept as a backup: Load, then Restore previous, brings it back.</p>',
+    '<p class="small muted">Choose difficulty and tutorial options on the opening menu before starting a fresh campaign. Your current campaign is kept as a backup: Load, then Restore previous, brings it back.</p>',
     '<hr class="bh-menu-rule">',
     '<div class="eyebrow">Rules guide</div>',
     '<button type="button" class="btn" data-bh-guide>Open the rules guide</button>',
@@ -341,7 +342,7 @@ function bhSaveImport(){
     // Save a recovery copy before changing the active autosave.
     if(before!==null)localStorage.setItem(KEY+BH_SAVE_BACKUP_SUFFIX,before);
     localStorage.setItem(KEY,raw);
-    window.location.reload();
+    bhOpeningReload();
   }catch(e){bhSaveUIStatus('Could not save imported campaign: '+e.message,true)}
 }
 function bhSaveRestore(){
